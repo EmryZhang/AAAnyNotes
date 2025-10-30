@@ -3,7 +3,7 @@ import "./App.css";
 import Header from "./components/layout/Header";
 import Sidebar from "./components/layout/Sidebar";
 import CardGrid from "./components/layout/CardGrid";
-import AIChatInterface from "./components/dialog/AIChatInterface";
+import AIChatInterface from "./components/chat/AIChatInterface";
 
 function App() {
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -47,7 +47,7 @@ function App() {
 
   const toggleChat = () => {
     setChatVisible((prev) => !prev);
-  }
+  };
   // 鼠标进入切换按钮
   const handleToggleBtnMouseEnter = () => {
     setIsMouseInToggleBtn(true);
@@ -63,7 +63,6 @@ function App() {
     }
   };
 
-  
   return (
     <div
       className="App"
