@@ -1,94 +1,93 @@
+// chatStreamApi.ts
 import type { ChatStreamParams, StreamChunk } from "../types/chat";
+
 /**
- * 发送大模型流式对话请求
- * @param params 请求参数
- * @param onChunk 收到流式数据的回调
- * @param onComplete 流结束的回调
- * @param onError 错误回调
- * @returns 取消请求的函数
+ * 后端流式请求核心函数（适配原有 getRes 逻辑）
+ * @param options 请求参数 + 取消信号
+ * @returns 流式 Response 对象
  */
-export function sendChatStream(
-  params: ChatStreamParams,
-  onChunk: (chunk: string) => void,
-  onComplete?: () => void,
-  onError?: (error: Error) => void
-): () => void {
-  const controller = new AbortController();
-  const signal = controller.signal;
-
-  // 后端API地址（Go服务暴露的流式接口）
-  const apiUrl = "/api/chat/stream";
-
-  fetch(apiUrl, {
+export async function getRes(
+  options: ChatStreamParams & { signal: AbortSignal }
+): Promise<Response> {
+  const response = await fetch("/api/chat/stream", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      // 默认参数与自定义参数合并，确保扩展性
-      model: "gpt-3.5-turbo",
-      temperature: 0.7,
-      topP: 0.9,
-      maxTokens: 2000,
-      ...params,
-    }),
-    signal,
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        throw new Error(`请求失败：HTTP ${response.status}`);
+    body: JSON.stringify(options),
+    signal: options.signal, // 关联取消信号，实现请求级取消
+  });
+  return response;
+}
+
+/**
+ * 流式请求核心逻辑（供组件调用）
+ * @param params 流式请求参数
+ * @param signal 取消信号（来自组件的 AbortController）
+ * @param onChunk 接收流式数据的回调
+ * @param onError 错误回调
+ * @param onComplete 完成回调
+ */
+export async function sendChatStream(
+  params: ChatStreamParams,
+  signal: AbortSignal,
+  onChunk: (content: string, finished: boolean) => void,
+  onError: (error: Error) => void,
+  onComplete: () => void
+) {
+  try {
+    // 调用后端接口
+    const response = await getRes({ ...params, signal });
+
+    // 校验响应合法性
+    if (!response.ok)
+      throw new Error(`请求失败：${response.status} ${response.statusText}`);
+    if (!response.body) throw new Error("后端返回空的流式响应体");
+
+    // 初始化流式读取器和解码器
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    // 循环读取流式数据
+    while (true) {
+      // 检测是否已取消，提前终止
+      if (signal.aborted) throw new DOMException("请求已取消", "AbortError");
+
+      const { done, value } = await reader.read();
+      // 流读取完成
+      if (done) {
+        onComplete();
+        return;
       }
 
-      if (!response.body) {
-        throw new Error("流式响应体不存在");
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          onComplete?.();
-          break;
-        }
-
-        // 处理流式数据（解析SSE格式）
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n\n");
-
-        for (let i = 0; i < lines.length - 1; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-
-          if (line.startsWith("data: ")) {
-            const dataStr = line.slice(6);
-            if (dataStr === "[DONE]") continue;
-
-            try {
-              const chunk: StreamChunk = JSON.parse(dataStr);
-              onChunk(chunk.content);
-              if (chunk.finished) {
-                onComplete?.();
-                reader.cancel();
-                break;
-              }
-            } catch (err) {
-              onError?.(new Error(`数据解析失败：${err instanceof Error ? err.message : String(err)}`));
-            }
+      // 解码二进制数据
+      const chunkStr = decoder.decode(value, { stream: true });
+      // 解析 SSE 格式（基础解析，复杂过滤放组件侧）
+      let content = "";
+      let finished = false;
+      try {
+        const trimmed = chunkStr.trim();
+        if (trimmed.startsWith("data: ")) {
+          const jsonStr = trimmed.slice(6).trim();
+          if (jsonStr) {
+            const chunkData = JSON.parse(jsonStr) as StreamChunk;
+            content = (chunkData.content || "").trim().replace(/\n\n+/g, "\n");
+            finished = !!chunkData.finished;
           }
         }
-
-        buffer = lines[lines.length - 1];
+      } catch (err) {
+        console.warn("解析流式数据失败", err);
       }
-    })
-    .catch((error) => {
-      if (!signal.aborted) {
-        onError?.(error);
-      }
-    });
 
-  // 返回取消函数
-  return () => controller.abort();
+      // 触发回调，传递解析后的数据给组件
+      onChunk(content, finished);
+    }
+  } catch (error) {
+    // 区分取消和其他错误
+    if ((error as DOMException).name === "AbortError") {
+      onError(new Error("请求已取消"));
+    } else {
+      onError(error instanceof Error ? error : new Error("未知流式请求错误"));
+    }
+  }
 }

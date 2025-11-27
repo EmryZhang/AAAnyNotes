@@ -13,6 +13,7 @@ export default function AiChat({
   onVisibleChange,
 }: AiChatProps) {
   // 基础状态
+  const [inputContent, setInputContent] = useState("");
   const [visible, setVisible] = useState(propVisible ?? false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -22,11 +23,12 @@ export default function AiChat({
       time: "10:00",
     },
   ]);
-  const [inputContent, setInputContent] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false); // 对应示例中的 loading
+  // 核心：存储 AbortController 实例（非响应式，仅用变量存储，和示例一致）
+  let controller: AbortController | null = null;
+  const controllerRef = useRef<AbortController | null>(null); // 必须用ref否则会丢失状态
   const chatRef = useRef<HTMLDivElement>(null);
-
-  // 流式相关状态
-  const [isStreaming, setIsStreaming] = useState(false); // 是否正在流式输出
+  // abortRequest是状态变量，set用来修改它，后面用typescript语法规定这个状态变量要么是null要么是无参数无返回值的函数
   const [abortRequest, setAbortRequest] = useState<(() => void) | null>(null); // 明确取消函数类型
   const [currentAiMsgId, setCurrentAiMsgId] = useState<string>(""); // 明确为字符串类型
 
@@ -62,22 +64,31 @@ export default function AiChat({
     onVisibleChange?.(newVisible);
   };
 
-  // 处理暂停/继续（当前仅实现暂停功能）
-  const handlePauseStream = () => {
-    if (isStreaming && abortRequest) {
-      abortRequest(); // 取消流式请求
-      setIsStreaming(false);
-      setAbortRequest(null);
-      // 弹出终止提示对话框
-      message.info("你已终止本次对话请求"); // 替换为自定义提示
+  const parseSSEChunk = (
+    rawChunk: string
+  ): { content: string; finished: boolean } => {
+    try {
+      const trimmed = rawChunk.trim();
+      if (!trimmed.startsWith("data: "))
+        return { content: "", finished: false };
+      const jsonStr = trimmed.slice(6).trim();
+      if (!jsonStr) return { content: "", finished: false };
+
+      const chunkData = JSON.parse(jsonStr);
+      const content = (chunkData.content || "").trim().replace(/\n\n+/g, "\n");
+      const finished = !!chunkData.finished;
+
+      return { content, finished };
+    } catch (error) {
+      console.warn("解析流式数据失败", error);
+      return { content: "", finished: false };
     }
   };
 
-  // 发送消息（对接流式API）
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputContent.trim() || isStreaming) return;
 
-    // 1. 添加用户消息
+    // 1. 添加用户消息（原有逻辑）
     const userMsg: Message = {
       id: Date.now().toString(),
       content: inputContent,
@@ -92,7 +103,7 @@ export default function AiChat({
     setInputContent("");
     setVisible(true);
 
-    // 2. 创建AI消息占位（用于流式填充）
+    // 2. 创建AI消息占位（原有逻辑）
     const aiMsgId = (Date.now() + 1).toString();
     const aiPlaceholderMsg: Message = {
       id: aiMsgId,
@@ -107,48 +118,87 @@ export default function AiChat({
     setCurrentAiMsgId(aiMsgId);
     setIsStreaming(true);
 
-    // 3. 调用流式API（明确参数类型）
+    // 3. 初始化控制器并发起流式请求
+    controllerRef.current = new AbortController(); // 赋值到 ref 的 current
+    const signal = controllerRef.current.signal;
+    console.log(controllerRef.current);
+    setIsStreaming(true);
+
+    // 4. 构造请求参数
     const requestParams: ChatStreamParams = {
-      // 明确为 ChatStreamParams 类型
-      messages: newMessages,
-      // 可扩展参数示例（自动符合类型规范）
-      // model: "gpt-4",
-      // temperature: 0.5,
+      messages: [...messages, userMsg],
+      // 可扩展参数：model、temperature 等
     };
 
-    const cancel = sendChatStream(
+    // 5. 调用流式请求函数
+    sendChatStream(
       requestParams,
-      (chunk: string) => {
-        // 明确 chunk 为 string 类型
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === aiMsgId ? { ...msg, content: msg.content + chunk } : msg
-          )
-        );
+      signal,
+      // onChunk：接收流式数据并更新UI
+      (content, finished) => {
+        if (content) {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMsgId
+                ? { ...msg, content: msg.content + content }
+                : msg
+            )
+          );
+        }
+        // 流结束处理
+        if (finished && content === "") {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMsgId
+                ? { ...msg, content: msg.content.replace(/\n\n$/, "") }
+                : msg
+            )
+          );
+          setIsStreaming(false);
+          controllerRef.current = null;
+        }
       },
+      // onError：错误处理
+      (error) => {
+        console.error("流式请求错误：", error.message);
+        if (error.message !== "请求已取消") {
+          // 非取消类错误，更新AI消息提示
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMsgId
+                ? { ...msg, content: `请求失败：${error.message}` }
+                : msg
+            )
+          );
+        }
+        setIsStreaming(false);
+        controllerRef.current = null;
+      },
+      // onComplete：流正常完成
       () => {
-        // 完成回调无参数
         setIsStreaming(false);
-        setAbortRequest(null);
-      },
-      (error: Error) => {
-        // 明确 error 为 Error 类型
-        console.error("流式请求失败：", error);
-        setIsStreaming(false);
-        setAbortRequest(null);
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === aiMsgId
-              ? { ...msg, content: `请求失败：${error.message}` }
-              : msg
-          )
-        );
+        controllerRef.current = null;
+        console.log("流式请求正常完成");
       }
     );
-
-    setAbortRequest(cancel);
   };
 
+  const cancelChatStream = () => {
+    console.log("点击了取消", controllerRef.current);
+    if (controllerRef.current) {
+      controllerRef.current.abort(); // 立即取消请求
+      setIsStreaming(false);
+      // 给AI消息添加停止提示
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === currentAiMsgId && msg.content
+            ? { ...msg, content: `${msg.content}\n\n【输出已手动停止】` }
+            : msg
+        )
+      );
+      controllerRef.current = null; // 清空控制器
+    }
+  };
   // 按Enter发送
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSend();
@@ -160,7 +210,7 @@ export default function AiChat({
       // 流式输出中：显示暂停按钮
       return (
         <button
-          onClick={handlePauseStream}
+          onClick={cancelChatStream}
           style={{
             width: 44,
             height: 52,
@@ -380,6 +430,7 @@ export default function AiChat({
                 <div
                   style={{
                     maxWidth: "70%",
+                    width: "90vw",
                     display: "flex",
                     flexDirection: "column",
                   }}
@@ -398,7 +449,17 @@ export default function AiChat({
                       position: "relative",
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+                    {/* 消息文本：左对齐 + 首行空两格 */}
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 14,
+                        lineHeight: 1.5,
+                        textAlign: "left", // 左对齐
+                        textIndent: "2em", // 首行空两格
+                        whiteSpace: "pre-wrap", // 保留文本中的换行/空格
+                      }}
+                    >
                       {msg.content}
                     </p>
                     <p

@@ -8,19 +8,15 @@ class ChatService:
 
     @staticmethod
     def stream_chat(req: ChatStreamRequest) -> Generator[StreamChunk, None, None]:
-        """
-        流式生成大模型响应
-        实际场景中：调用 OpenAI SDK / 本地模型，启用 stream=True 参数
-        """
-        # 模拟大模型思考过程（实际项目中替换为真实模型调用）
-        response_text = "这是大模型对用户问题的流式回复内容...\n\n感谢使用！"
-        tokens = list(response_text)  # 模拟按 token 拆分
+        print("🐍 ChatService.stream_chat 被调用！开始生成数据...")  # 日志1：确认进入生成逻辑
+        response_text = "这是 大模型 对 用户 问题 的 流式 回复 内容 ...\n\n 感谢使用！"
+        tokens = response_text.split(" ")
+        tokens = [token + " " for token in tokens]
+        tokens[-1] = tokens[-1].strip()
 
         for i, token in enumerate(tokens):
-            # 模拟生成延迟
-            time.sleep(0.05)
-            # 生成流式数据块（最后一块标记 finished=True）
-            yield StreamChunk(
-                content=token,
-                finished=(i == len(tokens) - 1)
-            )
+            time.sleep(1)
+            chunk = StreamChunk(content=token, finished=(i == len(tokens) - 1))
+            print(f"🐍 生成 chunk：{chunk.dict()}")  # 日志2：确认每个 chunk 生成
+            yield chunk
+        print("🐍 所有 chunk 生成完毕！")  # 日志3：确认循环执行完

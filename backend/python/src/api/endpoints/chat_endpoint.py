@@ -4,22 +4,28 @@ from common.models import ChatStreamRequest  # 对应 src/common/models.py
 from services.chat.chat_service import ChatService  # 对应 src/services/chat/chat_service.py
 import json
 from typing import Generator  
+import sys
 
 router = APIRouter(prefix="/api/chat")
 
-
 @router.post("/stream")
 async def chat_stream(request: Request, req: ChatStreamRequest):
-    """大模型流式对话接口（供 Go 服务调用）"""
+    print("🐍 收到 Go 服务的请求！")
 
     def generate() -> Generator[str, None, None]:
-        # 调用大模型服务获取流式响应
-        for chunk in ChatService.stream_chat(req):
-            # 检查客户端（Go 服务）是否断开连接
-            if request.client_disconnected:
-                break
-            # 转换为 JSON 字符串并返回
-            yield json.dumps(chunk.dict()) + "\n"
+        print("🐍 generate 生成器被迭代！")
+        try:
+            for chunk in ChatService.stream_chat(req):
+                json_str = json.dumps(chunk.dict()) + "\n"
+                print(f"🐍 发送给 Go：{json_str.strip()}")
+                yield json_str
+                sys.stdout.flush()
+        except Exception as e:
+            # 捕获到异常，说明 Go 确实断开了连接
+            print(f"🐍 Go 服务已断开连接（捕获异常）：{e}")
 
-    # 返回流式响应（text/plain 格式，由 Go 转换为 SSE）
-    return StreamingResponse(generate(), media_type="text/plain")
+    return StreamingResponse(
+        generate(),
+        media_type="text/plain",
+        headers={"X-Accel-Buffering": "no", "Connection": "keep-alive"}
+    )
