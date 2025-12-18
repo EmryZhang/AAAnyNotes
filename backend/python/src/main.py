@@ -1,18 +1,39 @@
+# -*- coding: utf-8 -*-
+import os
 from fastapi import FastAPI
 from api.endpoints.chat_endpoint import router as chat_router
+from fastapi.middleware.cors import CORSMiddleware
+from config.settings import settings
 
-# 初始化 FastAPI 应用
-app = FastAPI(title="大模型推理服务")
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
 
-# 注册路由
+app = FastAPI(title="AI Model Service")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(chat_router)
+
+@app.on_event("startup")
+async def startup_event():
+    """Validate configuration on startup"""
+    if not settings.glm_api_key:
+        print("??  Warning: GLM_API_KEY not configured. Set it in .env file.")
+    else:
+        print(f"? GLM model configured: {settings.glm_model}")
 
 if __name__ == "__main__":
     import uvicorn
-    # 启动服务（监听 8000 端口，允许跨域）
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True  # 开发环境启用自动重载
+        reload=True
     )
