@@ -1,147 +1,171 @@
-﻿# AAAnynotes Project Overview
+# AAAnyNotes - AI-Powered Knowledge Garden
 
-## AI AGENT WORKING RULES
+## Project Overview
+AAAnyNotes is a full-stack notes application with AI-powered conversation capabilities. It combines traditional note-taking with modern AI chat interfaces for an enhanced knowledge management experience.
 
-### MANDATORY WORKFLOW - MUST FOLLOW
+### System Architecture
+```
+Frontend (React + TypeScript)  <--->  Go API Server  <--->  Python AI Service
+     (UI Components)           (HTTP/gRPC)       (FastAPI + LLM)
+```
 
-**BEFORE ANY CODE WORK**:
-1. ALWAYS read this index.md first - NO EXCEPTIONS
-2. ALWAYS use router.md to locate module documentation
-3. ALWAYS read the target module MD before coding
+### Core Technologies
+- **Frontend**: React 19.2.0 + TypeScript, Vite build system, Ant Design UI components
+- **Go Backend**: Gin framework, GORM database operations, HTTP/gRPC communication
+- **Python Backend**: FastAPI, async processing, multiple LLM provider support
+- **AI Integration**: Kimi, GLM, OpenAI, Claude, and more via configurable mappings
 
-**AFTER ANY CODE WORK**:
-1. ALWAYS check all affected MD files for consistency
-2. NEVER leave documentation outdated - IMMEDIATE UPDATE REQUIRED
-3. ALWAYS verify that code changes match documented patterns
 
-### FORBIDDEN ACTIONS - DO NOT VIOLATE
+## Key Features
 
-**NEVER DO THESE**:
-- NEVER skip reading index.md - ALWAYS START HERE
-- NEVER ignore router.md for file locations
-- NEVER write code without reading module MD first
-- NEVER create files without updating relevant MD
-- NEVER modify APIs without updating documentation
-- NEVER change patterns without updating MD content
-- NEVER leave inconsistencies between code and docs
+### Knowledge Management
+- Card-based note organization with metadata
+- Grid-based layout for visual navigation
+- Rich text editing and categorization
+- Search and filtering capabilities
 
-### CONTEXT LOADING RULES
 
-**MODULE-SPECIFIC WORK**:
-MUST load: index.md + router.md + [target module].md
+### AI-Powered Conversation
+- Multi-model chat interface with streaming responses
+- Model selection and configuration management
+- Thinking mode support for enhanced reasoning
+- Real-time streaming with error handling
 
-**CROSS-MODULE WORK**:
-MUST load: index.md + all relevant module MDs
 
-**ARCHITECTURAL QUESTIONS**:
-MUST load: index.md ONLY
+### Cross-Platform Integration
+- Model ID mapping system for flexible provider switching
+- Environment-based configuration management
+- Multi-language support (Chinese/English optimized)
+- Enterprise-grade security options
 
-### DOCUMENTATION UPDATES - IMMEDIATE REQUIREMENTS
 
-**UPDATE MD WHEN**:
-- New files are created
-- APIs are added/modified
-- File locations change
-- New patterns are introduced
-- Dependencies are updated
-- Functionality changes
+## Development Workflow
 
-**NO DELAYS**: Update documentation immediately after code changes - NOT LATER
+### Quick Start
+1. **Windows Users**: Run `start.bat` for one-click startup
+2. **PowerShell Users**: Run `scripts/start-all.ps1` for managed startup
+3. **Manual Start**: Follow service-specific commands below
 
-### CONSISTENCY ENFORCEMENT
 
-**ALWAYS VERIFY**:
-- Code matches documented patterns
-- File locations are accurate in MDs
-- API endpoints are correctly documented
-- Technology choices are reflected in docs
-- No contradictions between different MD files
+### Service Management
+- **Frontend**: `cd frontend && pnpm dev` (http://localhost:5173)
+- **Go Backend**: `cd backend/go && go run cmd/api/main.go` (http://localhost:8080)
+- **Python Backend**: `cd backend/python && conda activate sj && python src/main.py` (http://localhost:8000)
 
-**IF INCONSISTENCY FOUND**: Fix immediately before proceeding
+## Code Organization
 
-### LANGUAGE REQUIREMENT
+### Modular Architecture
+- **agentext/**: Enhanced context documentation and routing
+- **config/**: Centralized configuration and model definitions
+- **frontend/**: React UI with TypeScript strict typing
+- **backend/**: Polyglot services with clear separation
+- **scripts/**: Build automation and deployment utilities
 
-**ALL AGENT-CONTEXT DOCUMENTATION MUST BE IN ENGLISH**:
-- MANDATORY: All MD files must use English only
-- FORBIDDEN: No Chinese characters in documentation
-- PURPOSE: Ensure consistent AI model understanding
-- EXCEPTION: Project names may retain original form
 
-## Current Implementation
+### Documentation System
+- **AGENTS.md**: Core development guidelines and policies
+- **agentext/router.md**: Intelligent routing to specific modules
+- **Module-specific docs**: Detailed implementation guides
+- **Language requirements**: English-only development content
 
-### Core Architecture
-Full-stack notes application with AI chat integration:
-- Frontend: React + TypeScript + Vite + Ant Design
-- Backend: Go (Gin) HTTP API + Python (FastAPI) AI service
-- Database: GORM with SQLite/PostgreSQL
-- Deployment: One-click startup with conda environment
+## Best Practices
 
-### System Flow
-1. Frontend (port 5173) to Go API (port 8080) to Python AI (port 8000)
-2. Auth flow: JWT tokens with refresh mechanism
-3. Data flow: RESTful APIs with async Python processing
+### Code Quality
+- TypeScript strict mode with comprehensive type definitions
+- Go standard formatting and testing patterns
+- Python PEP 8 compliance with Pydantic validation
+- Comprehensive error handling and logging
 
-### Implemented Features - What Currently Works
-- User authentication and management
-- Notes CRUD operations
-- AI-powered chat functionality
-- Responsive UI with real-time updates
+### Performance
+- Async processing for AI service responsiveness
+- Optimized database queries with proper indexing
+- Frontend lazy loading and code splitting
+- Streaming responses for real-time user experience
 
-## Technology Principles
-- Go: Clean architecture, dependency injection, middleware pipeline
-- Python: Async FastAPI, Pydantic validation, streaming responses
-- React: Functional components, TypeScript safety, Ant Design consistency
+### Security
+- JWT-based authentication with configurable middleware
+- Environment variable management for API keys
+- Input validation and sanitization
+- CORS and security headers configuration
 
-## Development Commands
-- start.bat / scripts/start-all.ps1 for all services
-- Frontend: pnpm dev/build/lint
-- Go: go run cmd/api/main.go
-- Python: conda activate sj && python src/main.py
+## AI Model Integration
 
-## Vision & Purpose
+### Supported Providers
+- **Kimi (Moonshot AI)**: kimi-k2-turbo-preview, kimi-k2-thinking
+- **GLM (Zhipu AI)**: glm-4, glm-3-turbo
+- **OpenAI**: gpt-4, gpt-3.5-turbo
+- **Claude**: claude-3-sonnet-20240229, claude-3-opus-20240229
+- **And more**: Azure, Gemini, ERNIE, Hunyuan, etc.
 
-### Project Background
-AAAnynotes is a note-taking web application designed to solve core problems in knowledge transfer, consolidation, processing, and collaboration between teachers and students. The system uses knowledge cards as core carrier, integrates large model intelligent technology, and creates a comprehensive knowledge management platform specifically designed for smart classroom scenarios. It meets the needs of teachers for teaching resource creation, distribution, and review, while also adapting to students needs for note organization, knowledge point optimization, and collaborative learning, helping to build an efficient, interactive, and personalized smart teaching ecosystem.
+### Model Features
+- **Thinking Mode**: Advanced reasoning for supported models
+- **Streaming**: Real-time response streaming
+- **Long Context**: Extended conversation history
+- **Multi-lingual**: Chinese and English optimization
+- **Specialized**: Code generation, analysis, etc.
 
-### Core Philosophy
-- Knowledge Card-based: Transform fragmented knowledge into structured units
-- AI-powered Processing: Use LLM for content optimization and recommendations
-- Scenario-specific Design: Customized for smart classroom needs
-- Dual-empowerment: Serve both teaching and learning requirements
+## Deployment & Operations
 
-### System Goals
-1. Provide convenient knowledge card lifecycle management with rich text editing, categorization, and retrieval.
-2. Integrate LLM for content summarization, structured formatting, multi-card synthesis, and intelligent Q&A.
-3. Support diverse content input and export methods to meet multi-scenario data interaction requirements.
-4. Build a tiered user system providing collaboration and sharing for advanced users, while ensuring compliance operations and API management through admin backend.
-5. Ensure system data security with backup and exception handling mechanisms.
+### Environment Configuration
+- Development: Local development with hot reload
+- Production: Optimized builds with minimal dependencies
+- Testing: Comprehensive test coverage across all layers
+- Monitoring: Structured logging and error tracking
 
-### System Scope
+### Scaling Considerations
+- Frontend: CDN-based asset delivery, code splitting
+- Backend: Horizontal scaling with gRPC communication
+- Database: Connection pooling and query optimization
+- AI Services: Load balancing and failover mechanisms
 
-#### Inclusion Scope
+## Future Roadmap
 
-1. User-side Functions: Knowledge card management (create, edit, categorize), LLM integration (single/multi-card processing, content Q&A), content input/export (voice, document upload, PDF export), sharing and collaboration (advanced users), search, data backup, notifications.
+### Short Term
+- Enhanced AI reasoning capabilities
+- Improved mobile responsiveness
+- Advanced search and filtering
+- Real-time collaboration features
 
-2. Admin Backend Functions: Card management and monitoring, content moderation, communication log viewing, API key management, traffic monitoring, billing management.
+### Long Term
+- Multi-user support with permissions
+- Advanced analytics and insights
+- Plugin system for extensibility
+- Cloud deployment options
 
-3. Core Components: User system module, knowledge card module, LLM agent module, collaboration module, admin module, data storage and backup module.
+---
 
-#### Exclusion Scope
+## Quick Reference
+### Essential Commands
+```bash
+# Development
+cd frontend && pnpm dev          # Frontend dev server
+cd backend/go && go run cmd/api/main.go  # Go API server
+cd backend/python && python src/main.py  # Python AI service
 
-1. Complex PDF Processing: Deep parsing of complex PDFs (encrypted, 3D models, dynamic forms).
 
-2. Third-party Social Integration: Direct login and content sync with social platforms.
+# Testing
+cd frontend && pnpm test         # Frontend testscd backend/go && go test ./...     # Go tests
+cd backend/python && pytest          # Python tests
 
-3. LLM Development: Underlying algorithm development and training (only leveraging existing LLM capabilities).
 
-4. Offline LLM Integration: LLM integration functionality in offline state.
+# Building
+cd frontend && pnpm build        # Frontend production build
+cd backend/go && go build ./...    # Go binaries
+```
 
-### Future Vision - Not Yet Implemented
-- Smart Classroom Integration: Seamless integration with classroom teaching systems
-- Personalized Learning Paths: AI-driven personalized content recommendations
-- Real-time Collaboration: Multi-user collaborative note-taking and discussion
-- Knowledge Graph Visualization: Visual representation of concept relationships
-- Teaching Analytics Dashboard: Comprehensive learning analytics for educators
-- Cross-device Synchronization: Seamless sync across all learning devices
-- Voice-activated Notes: Speech-to-text with intelligent categorization
-- Adaptive Assessment: Dynamic quiz generation based on learning progress
+### Configuration Files
+- `config/models.json`: Model definitions and capabilities
+- `backend/go/internal/config/`: Service configuration
+- `backend/python/src/config/`: Python service settings
+- `frontend/vite.config.ts`: Frontend build configuration
+
+
+### Key Locations
+- Frontend components: `frontend/src/components/`
+- Go API handlers: `backend/go/internal/interface/http/handlers/`
+- Python services: `backend/python/src/services/chat/`
+- Model mappings: `backend/python/src/config/model_mappings.py`
+
+---
+
+**This document serves as the primary entry point for understanding the AAAnyNotes project architecture, development workflow, and implementation patterns.**

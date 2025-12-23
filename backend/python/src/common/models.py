@@ -14,13 +14,14 @@ class Message(BaseModel):
 class ChatStreamRequest(BaseModel):
     """大模型流式请求参数（与 Go 对齐）"""
     messages: List[Message]
-    model: Optional[str] = "gpt-3.5-turbo"
+    model: Optional[str] = "kimi"
     temperature: Optional[float] = 0.7
     topP: Optional[float] = 0.9
     maxTokens: Optional[int] = 2000
     frequencyPenalty: Optional[float] = 0.0
     presencePenalty: Optional[float] = 0.0
     stop: Optional[List[str]] = None
+    thinkingMode: Optional[bool] = False  # Enable thinking mode
 
 
 class StreamChunk(BaseModel):

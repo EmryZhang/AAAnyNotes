@@ -1,26 +1,27 @@
 package model
 
-// 与前端 ChatStreamParams 对齐的请求参数
+// ChatStreamRequest aligned with frontend ChatStreamParams
 type ChatStreamRequest struct {
-	Messages        []Message `json:"messages"`        // 对话历史
-	Model           string    `json:"model,omitempty"` // 模型名称
-	Temperature     float64   `json:"temperature,omitempty"`
-	TopP            float64   `json:"topP,omitempty"`
-	MaxTokens       int       `json:"maxTokens,omitempty"`
-	FrequencyPenalty float64  `json:"frequencyPenalty,omitempty"`
-	PresencePenalty  float64  `json:"presencePenalty,omitempty"`
-	Stop            []string  `json:"stop,omitempty"`
+	Messages         []Message `json:"messages"`        // Conversation history
+	Model            string    `json:"model,omitempty"` // Model name(id)
+	Temperature      float64   `json:"temperature,omitempty"`
+	TopP             float64   `json:"topP,omitempty"`
+	MaxTokens        int       `json:"maxTokens,omitempty"`
+	FrequencyPenalty float64   `json:"frequencyPenalty,omitempty"`
+	PresencePenalty  float64   `json:"presencePenalty,omitempty"`
+	Stop             []string  `json:"stop,omitempty"`
+	ThinkingMode     bool      `json:"thinkingMode,omitempty"` // Enable thinking mode
 }
 
-// 单条消息结构（与前端一致）
+// Single message structure (consistent with frontend)
 type Message struct {
 	ID      string `json:"id"`
 	Content string `json:"content"`
-	Sender  string `json:"sender"` // "user" 或 "ai"
+	Sender  string `json:"sender"` // "user" or "ai"
 	Time    string `json:"time"`
 }
 
-// 流式响应数据块（与前端 StreamChunk 对齐）
+// Streaming response data chunk (aligned with frontend StreamChunk)
 type StreamChunk struct {
 	Content  string `json:"content"`
 	Finished bool   `json:"finished"`

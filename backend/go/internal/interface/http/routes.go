@@ -8,11 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// SetupRoutes 注册所有 HTTP 路由
+// SetupRoutes registers all HTTP routes
 func SetupRoutes(r *gin.Engine) {
-	// 配置 CORS（允许前端跨域请求）
+	// Configure CORS (allow frontend cross-origin requests)
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"}, // 前端地址
+		AllowOrigins:     []string{"http://localhost:5173"}, // frontend address
 		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -20,12 +20,14 @@ func SetupRoutes(r *gin.Engine) {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// 注册 API 路由
+	// Register API routes
 	api := r.Group("/api")
 	{
 		chat := api.Group("/chat")
 		{
-			chat.POST("/stream", handlers.ChatStream) // 大模型流式对话接口
+			chat.POST("/stream", handlers.ChatStream)    // AI model streaming chat endpoint
+			chat.GET("/models", handlers.GetModels)       // Get available AI models endpoint
+			chat.GET("/health", handlers.GetModelHealth)  // Chat service health check endpoint
 		}
 	}
 }

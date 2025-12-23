@@ -1,399 +1,671 @@
 import { useState, useRef, useEffect } from "react";
 import { message } from "antd";
 import { sendChatStream } from "../../api/chat";
+import { getModelsSync, getDefaultModelSync } from "../../services/modelService";
 import type { Message, ChatStreamParams } from "../../types/chat";
+import type { ModelConfig } from "../../api/chat";
+import ReactMarkdown from "react-markdown";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
 
-interface AiChatProps {
-  visible?: boolean;
-  onVisibleChange?: (visible: boolean) => void;
+// ========== 思考动画组件（原有） ==========
+const ThinkingAnimation = () => {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#667eea" }}>
+      <span className="thinking-text" style={{ fontSize: 14, fontWeight: 500 }}>Thinking</span>
+      <span className="dots" style={{ display: "flex", gap: 2 }}>
+        <span style={{ animation: "dot-flash 1s infinite 0.2s" }}>.</span>
+        <span style={{ animation: "dot-flash 1s infinite 0.4s" }}>.</span>
+        <span style={{ animation: "dot-flash 1s infinite 0.6s" }}>.</span>
+      </span>
+      <style>
+        {`
+          @keyframes dot-flash {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+          }
+          .thinking-text {
+            position: relative;
+            overflow: hidden;
+            white-space: nowrap;
+            animation: typing 2s steps(6) infinite alternate;
+          }
+          @keyframes typing {
+            0% { width: 0; }
+            100% { width: 50px; }
+          }
+        `}
+      </style>
+    </div>
+  );
+};
+
+// ========== 自定义Markdown渲染（原有） ==========
+const CustomMarkdownRenderer = ({ content }: { content: string }) => {
+  const processedContent = content
+    .split('\n').filter(line => line.trim() !== '').join('\n');
+  return (
+    <div style={{
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+      lineHeight: 1,
+      lineBreak: "strict"
+    }}>
+      <ReactMarkdown
+        remarkPlugins={[]}
+        components={{
+          code({ node, inline, className, children, ...props }: any) {
+            const match = /language-(\w+)/.exec(className || "");
+            const codeContent = String(children).trim();
+            const isInlineCode = inline || !className?.includes('language-') || codeContent.length < 50;
+
+            if (isInlineCode) {
+              return (
+                <code
+                  style={{
+                    backgroundColor: "#f0f0f0",
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    fontSize: 13,
+                    color: "#ac59feff",
+                    whiteSpace: "pre-wrap",
+                  }}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            }
+            return (
+              <div style={{ marginTop: 8, marginBottom: 8, borderRadius: 8, overflow: "hidden" }}>
+                <SyntaxHighlighter
+                  language={match ? match[1] : "python"}
+                  style={dracula}
+                  PreTag="div"
+                  customStyle={{
+                    fontSize: 13,
+                    lineHeight: 1,
+                    padding: 16,
+                    borderRadius: 8,
+                    overflowX: "auto",
+                    backgroundColor: "#282a36",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                  children={String(children).replace(/\\n/g, "\n").replace(/\n$/, "")}
+                  {...props}
+                />
+              </div>
+            );
+          },
+          p: ({ children }) => <p style={{ margin: "4px 0", lineHeight: 1 }}>{children}</p>,
+          ul: ({ children }) => <ul style={{ margin: "4px 0", paddingLeft: 24, lineHeight: 1 }}>{children}</ul>,
+          ol: ({ children }) => <ol style={{ margin: "4px 0", paddingLeft: 24, lineHeight: 1 }}>{children}</ol>,
+          li: ({ children }) => <li style={{ margin: "2px 0", lineHeight: 1 }}>{children}</li>,
+          h1: ({ children }) => <h1 style={{ fontSize: 18, margin: "8px 0", fontWeight: "bold" }}>{children}</h1>,
+          h2: ({ children }) => <h2 style={{ fontSize: 16, margin: "8px 0", fontWeight: "bold" }}>{children}</h2>,
+          h3: ({ children }) => <h3 style={{ fontSize: 15, margin: "8px 0", fontWeight: "bold" }}>{children}</h3>,
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#1890ff", textDecoration: "underline" }}>
+              {children}
+            </a>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote style={{
+              margin: "8px 0",
+              padding: "8px 12px",
+              borderLeft: "3px solid #1890ff",
+              backgroundColor: "#f5f5f5",
+              borderRadius: "0 4px 4px 0",
+              lineHeight: 1,
+            }}>
+              {children}
+            </blockquote>
+          ),
+          hr: () => <hr style={{ border: "none", borderTop: "1px solid #eee", margin: "12px 0" }} />,
+        }}
+      >
+        {processedContent}
+      </ReactMarkdown>
+    </div>
+  );
+};
+
+// ========== 扩展ModelConfig：标记是否支持思考模式 ==========
+interface ExtendedModelConfig extends ModelConfig {
+  supportThinkingMode: boolean; // 是否支持思考模式（名称带(T)）
+  originalName: string; // 原始名称（去除(T)）
 }
+
+// ========== 扩展Message类型：新增思考内容字段 ==========
+interface ExtendedMessage extends Message {
+  thinkingContent: string; // 独立存储思考内容
+}
+
+// ========== 辅助函数：解析模型是否支持思考模式 ==========
+const parseModelSupportThinking = (model: ModelConfig): ExtendedModelConfig => {
+  const name = model.name || model.id;
+  const supportThinkingMode = name.includes('(T)');
+  // 去除名称中的(T)，优化显示
+  const originalName = supportThinkingMode ? name.replace(/\s*\(T\)\s*$/, '') : name;
+
+  return {
+    ...model,
+    supportThinkingMode,
+    originalName
+  };
+};
 
 export default function AiChat({
   visible: propVisible,
   onVisibleChange,
-}: AiChatProps) {
-  // 基础状态
+  modelsReady = false,
+}: {
+  visible?: boolean;
+  onVisibleChange?: (visible: boolean) => void;
+  modelsReady?: boolean;
+}) {
+  // ========== 状态管理（核心修改：新增思考模式相关状态） ==========
   const [inputContent, setInputContent] = useState("");
   const [visible, setVisible] = useState(propVisible ?? false);
-  const [messages, setMessages] = useState<Message[]>([
+  // 扩展Message，新增thinkingContent字段存储思考内容
+  const [messages, setMessages] = useState<ExtendedMessage[]>([
     {
-      id: "1",
-      content: "你好！有什么可以帮助你的吗？",
+      id: "init-ai-msg",
+      content: "Hello! I am your AI assistant for knowledge garden.",
       sender: "ai",
-      time: "10:00",
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      thinkingContent: "", // 初始思考内容为空
     },
   ]);
-  const [isStreaming, setIsStreaming] = useState(false); // 对应示例中的 loading
-  // 核心：存储 AbortController 实例（非响应式，仅用变量存储，和示例一致）
-  let controller: AbortController | null = null;
-  const controllerRef = useRef<AbortController | null>(null); // 必须用ref否则会丢失状态
-  const chatRef = useRef<HTMLDivElement>(null);
-  // abortRequest是状态变量，set用来修改它，后面用typescript语法规定这个状态变量要么是null要么是无参数无返回值的函数
-  const [abortRequest, setAbortRequest] = useState<(() => void) | null>(null); // 明确取消函数类型
-  const [currentAiMsgId, setCurrentAiMsgId] = useState<string>(""); // 明确为字符串类型
+  const [isStreaming, setIsStreaming] = useState(false);
+  // 扩展模型配置，标记是否支持思考模式
+  const [models, setModels] = useState<ExtendedModelConfig[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [modelsLoading, setModelsLoading] = useState(true);
+  // 核心：思考模式开关状态
+  const [isThinkingModeEnabled, setIsThinkingModeEnabled] = useState(false);
+  // 当前选中模型是否支持思考模式
+  const [isThinkingModeAvailable, setIsThinkingModeAvailable] = useState(false);
+  // 核心：每个消息独立控制「是否显示思考内容」（永久生效）
+  const [showThinkingText, setShowThinkingText] = useState<Record<string, boolean>>({});
+  const [currentAiMsgId, setCurrentAiMsgId] = useState<string>("");
 
-  // 同步外部visible状态
+  // ========== 引用管理（原有） ==========
+  const controllerRef = useRef<AbortController | null>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+
+  // ========== 副作用处理（核心修改：模型解析+思考模式联动） ==========
   useEffect(() => {
     setVisible(propVisible ?? false);
   }, [propVisible]);
 
-  // 自动滚动到底部
+  useEffect(() => {
+    if (modelsReady) {
+      const loadModels = () => {
+        try {
+          setModelsLoading(true);
+          const availableModels = getModelsSync();
+          const defaultModel = getDefaultModelSync();
+
+          // 解析模型，标记是否支持思考模式
+          const parsedModels = availableModels.map(parseModelSupportThinking);
+          setModels(parsedModels);
+
+          // 设置默认模型
+          if (defaultModel) {
+            setSelectedModel(defaultModel);
+            // 初始化默认模型的思考模式支持状态
+            const defaultModelConfig = parsedModels.find(m => m.id === defaultModel);
+            setIsThinkingModeAvailable(defaultModelConfig?.supportThinkingMode ?? false);
+            // 非支持模型强制关闭思考模式
+            if (!defaultModelConfig?.supportThinkingMode) {
+              setIsThinkingModeEnabled(false);
+            }
+          } else if (parsedModels.length > 0) {
+            setSelectedModel(parsedModels[0].id);
+            setIsThinkingModeAvailable(parsedModels[0].supportThinkingMode);
+            if (!parsedModels[0].supportThinkingMode) {
+              setIsThinkingModeEnabled(false);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load models:", error);
+          message.error("Failed to load AI models, please try again later");
+        } finally {
+          setModelsLoading(false);
+        }
+      };
+      loadModels();
+    }
+  }, [modelsReady]);
+
+  // 核心：切换模型时更新思考模式支持状态
+  useEffect(() => {
+    if (selectedModel && models.length > 0) {
+      const selectedModelConfig = models.find(m => m.id === selectedModel);
+      const supportThinking = selectedModelConfig?.supportThinkingMode ?? false;
+      setIsThinkingModeAvailable(supportThinking);
+
+      // 非支持模型强制关闭思考模式
+      if (!supportThinking && isThinkingModeEnabled) {
+        setIsThinkingModeEnabled(false);
+        message.info("当前模型不支持思考模式，已自动关闭");
+      }
+    }
+  }, [selectedModel, models]);
+
   useEffect(() => {
     if (visible && chatRef.current) {
-      const scrollable = chatRef.current.querySelector(
-        ".chat-content"
-      ) as HTMLDivElement;
-      scrollable?.scrollTo({
-        top: scrollable.scrollHeight,
-        behavior: "smooth",
-      });
+      const scrollable = chatRef.current.querySelector(".chat-content") as HTMLDivElement;
+      if (scrollable) {
+        scrollable.scrollTo({
+          top: scrollable.scrollHeight,
+          behavior: "smooth",
+        });
+      }
     }
   }, [visible, messages]);
 
-  // 取消流式请求时重置状态
   useEffect(() => {
     return () => {
-      abortRequest?.();
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+        controllerRef.current = null;
+      }
     };
-  }, [abortRequest]);
+  }, []);
 
-  // 展开/收起对话框
+  // ========== 核心方法（修改：添加思考模式参数+控制思考内容处理） ==========
   const toggleChat = () => {
     const newVisible = !visible;
     setVisible(newVisible);
     onVisibleChange?.(newVisible);
   };
 
-  const parseSSEChunk = (
-    rawChunk: string
-  ): { content: string; finished: boolean } => {
+  // 解析后端封装的JSON数据（兼容方案）
+  const parseChunkData = (content: string) => {
     try {
-      const trimmed = rawChunk.trim();
-      if (!trimmed.startsWith("data: "))
-        return { content: "", finished: false };
-      const jsonStr = trimmed.slice(6).trim();
-      if (!jsonStr) return { content: "", finished: false };
-
-      const chunkData = JSON.parse(jsonStr);
-      const content = (chunkData.content || "").trim().replace(/\n\n+/g, "\n");
-      const finished = !!chunkData.finished;
-
-      return { content, finished };
-    } catch (error) {
-      console.warn("解析流式数据失败", error);
-      return { content: "", finished: false };
+      return JSON.parse(content);
+    } catch (e) {
+      // 兼容旧数据（无封装）
+      return { content, type: "content", finished: false };
     }
   };
 
   const handleSend = async () => {
-    if (!inputContent.trim() || isStreaming) return;
+    const trimmedContent = inputContent.trim();
+    if (!trimmedContent || isStreaming) return;
 
-    // 1. 添加用户消息（原有逻辑）
-    const userMsg: Message = {
+    // 1. 添加用户消息
+    const userMsg: ExtendedMessage = {
       id: Date.now().toString(),
-      content: inputContent,
+      content: trimmedContent,
       sender: "user",
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      thinkingContent: "",
     };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInputContent("");
     setVisible(true);
 
-    // 2. 创建AI消息占位（原有逻辑）
+    // 2. 创建AI消息占位符（新增thinkingContent字段）
     const aiMsgId = (Date.now() + 1).toString();
-    const aiPlaceholderMsg: Message = {
+    const aiPlaceholder: ExtendedMessage = {
       id: aiMsgId,
       content: "",
       sender: "ai",
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      thinkingContent: "", // 初始思考内容为空
     };
-    setMessages((prev) => [...prev, aiPlaceholderMsg]);
+    // 初始状态：隐藏思考内容（显示动画）
+    setShowThinkingText(prev => ({ ...prev, [aiMsgId]: false }));
+    setMessages([...newMessages, aiPlaceholder]);
+    setIsStreaming(true);
     setCurrentAiMsgId(aiMsgId);
-    setIsStreaming(true);
 
-    // 3. 初始化控制器并发起流式请求
-    controllerRef.current = new AbortController(); // 赋值到 ref 的 current
-    const signal = controllerRef.current.signal;
-    console.log(controllerRef.current);
-    setIsStreaming(true);
-
-    // 4. 构造请求参数
-    const requestParams: ChatStreamParams = {
-      messages: [...messages, userMsg],
-      // 可扩展参数：model、temperature 等
+    // 3. 构建请求参数（核心：添加enableReasoning参数）
+    const params: ChatStreamParams = {
+      messages: newMessages.map((msg) => ({
+        id: msg.id,
+        content: msg.content,
+        time: msg.time,
+        sender: msg.sender,
+      })),
+      model: selectedModel,
+      thinkingMode: isThinkingModeEnabled,
     };
 
-    // 5. 调用流式请求函数
-    sendChatStream(
-      requestParams,
-      signal,
-      // onChunk：接收流式数据并更新UI
-      (content, finished) => {
-        if (content) {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === aiMsgId
-                ? { ...msg, content: msg.content + content }
-                : msg
-            )
-          );
-        }
-        // 流结束处理
-        if (finished && content === "") {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === aiMsgId
-                ? { ...msg, content: msg.content.replace(/\n\n$/, "") }
-                : msg
-            )
-          );
-          setIsStreaming(false);
-          controllerRef.current = null;
-        }
-      },
-      // onError：错误处理
-      (error) => {
-        console.error("流式请求错误：", error.message);
-        if (error.message !== "请求已取消") {
-          // 非取消类错误，更新AI消息提示
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === aiMsgId
-                ? { ...msg, content: `请求失败：${error.message}` }
-                : msg
-            )
-          );
-        }
-        setIsStreaming(false);
-        controllerRef.current = null;
-      },
-      // onComplete：流正常完成
-      () => {
-        setIsStreaming(false);
-        controllerRef.current = null;
-        console.log("流式请求正常完成");
-      }
-    );
-  };
+    // 4. 发起流式请求
+    const controller = new AbortController();
+    controllerRef.current = controller;
 
-  const cancelChatStream = () => {
-    console.log("点击了取消", controllerRef.current);
-    if (controllerRef.current) {
-      controllerRef.current.abort(); // 立即取消请求
+    try {
+      await sendChatStream(
+        params,
+        controller.signal,
+        // 核心修改：仅开启思考模式时处理思考内容
+        (content: string, finished: boolean) => {
+          // 解析后端封装的数据
+          const chunkData = parseChunkData(content);
+          const { content: realContent, type, finished: chunkFinished } = chunkData;
+
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id !== aiMsgId) return msg;
+
+              // 仅开启思考模式且类型为thinking时，才存储思考内容
+              if (type === "thinking" && realContent && isThinkingModeEnabled) {
+                return { ...msg, thinkingContent: msg.thinkingContent + realContent };
+              } else if (type === "content" && realContent) {
+                return { ...msg, content: msg.content + realContent };
+              }
+              // 错误类型
+              else if (type === "error") {
+                return { ...msg, content: realContent };
+              }
+              return msg;
+            })
+          );
+
+          // 流式结束
+          if (chunkFinished) {
+            setIsStreaming(false);
+            setCurrentAiMsgId("");
+            controllerRef.current = null;
+          }
+        },
+        (error: Error) => {
+          console.error("Streaming error:", error);
+          setIsStreaming(false);
+          setCurrentAiMsgId("");
+          controllerRef.current = null;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMsgId
+                ? { ...msg, content: `Error: ${error.message || "Unknown error"}`, thinkingContent: "" }
+                : msg
+            )
+          );
+          message.error(`Failed to get AI response: ${error.message}`);
+        },
+        () => {
+          setIsStreaming(false);
+          setCurrentAiMsgId("");
+          controllerRef.current = null;
+          message.success("AI response completed");
+        }
+      );
+    } catch (error) {
+      const err = error as Error;
+      console.error("Send message failed:", err);
       setIsStreaming(false);
-      // 给AI消息添加停止提示
+      setCurrentAiMsgId("");
+      controllerRef.current = null;
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === currentAiMsgId && msg.content
-            ? { ...msg, content: `${msg.content}\n\n【输出已手动停止】` }
+          msg.id === aiMsgId
+            ? { ...msg, content: `Error: ${err.message || "Request failed"}`, thinkingContent: "" }
             : msg
         )
       );
-      controllerRef.current = null; // 清空控制器
     }
   };
-  // 按Enter发送
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSend();
+
+  // ========== 核心：切换思考内容显示/隐藏（永久生效） ==========
+  const toggleThinkingText = (msgId: string) => {
+    setShowThinkingText(prev => ({
+      ...prev,
+      [msgId]: !prev[msgId]
+    }));
   };
 
-  // 右下角按钮逻辑：流式输出时显示暂停，否则显示展开关闭
+  // ========== 核心：切换思考模式开关 ==========
+  const toggleThinkingMode = () => {
+    if (!isThinkingModeAvailable) return; // 非支持模型不允许切换
+    setIsThinkingModeEnabled(prev => !prev);
+    message.info(`已${!isThinkingModeEnabled ? "开启" : "关闭"}思考模式`);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleAbort = () => {
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+      controllerRef.current = null;
+    }
+    setIsStreaming(false);
+    setCurrentAiMsgId("");
+    message.info("AI response cancelled");
+  };
+
   const renderBottomButton = () => {
     if (isStreaming) {
-      // 流式输出中：显示暂停按钮
       return (
         <button
-          onClick={cancelChatStream}
+          onClick={handleAbort}
           style={{
-            width: 44,
-            height: 52,
+            width: 20,
+            height: 48,
             borderRadius: "50%",
-            backgroundColor: "#ff6b6b",
-            color: "white",
             border: "none",
+            background: "#1890ff",
+            color: "white",
             cursor: "pointer",
+            fontSize: 24,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 2px 8px rgba(255,107,107,0.3)",
-            transition: "transform 0.2s ease",
-            marginRight: "2%",
-            fontSize: 24,
-            paddingTop: 6,
+            boxShadow: "0 4px 12px rgba(24, 144, 255, 0.4)",
+            transition: "all 0.3s ease",
+            marginRight: 10,
+            marginLeft: "1vw",
           }}
-          onMouseEnter={(e) => {
-            (e.target as HTMLButtonElement).style.transform = "scale(1.1)";
-            (e.target as HTMLButtonElement).style.backgroundColor = "#ca5050ff";
-          }}
-          onMouseLeave={(e) => {
-            (e.target as HTMLButtonElement).style.transform = "scale(1)";
-            (e.target as HTMLButtonElement).style.backgroundColor = "#ff6b6b";
-          }}
+          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = "#40a9ff"}
+          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = "#1890ff"}
+          disabled={!isStreaming}
         >
-          ■
+          ⏹
         </button>
       );
     } else {
-      // 非流式输出：显示原展开关闭按钮
       return (
         <button
-          onClick={() => {
-            toggleChat();
-          }}
+          onClick={handleSend}
           style={{
-            width: 50,
-            height: 50,
+            width: 20,
+            height: 48,
             borderRadius: "50%",
-            backgroundColor: "#c2d7ecff",
-            color: "white",
             border: "none",
+            background: "#1890ff",
+            color: "white",
             cursor: "pointer",
+            fontSize: 24,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 2px 8px rgba(0,123,255,0.3)",
-            transition: "transform 0.2s ease, background-color 0.2s ease",
-            marginRight: "2%",
-            fontSize: 22,
+            boxShadow: "0 4px 12px rgba(24, 144, 255, 0.4)",
+            transition: "all 0.3s ease",
+            marginRight: 10,
+            marginLeft: "1vw",
           }}
-          onMouseEnter={(e) => {
-            (e.target as HTMLButtonElement).style.transform = "scale(1.1)";
-            (e.target as HTMLButtonElement).style.backgroundColor = "#2c86e6ff";
-          }}
-          onMouseLeave={(e) => {
-            (e.target as HTMLButtonElement).style.transform = "scale(1)";
-            (e.target as HTMLButtonElement).style.backgroundColor = "#c2d7ecff";
-          }}
+          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = "#40a9ff"}
+          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = "#1890ff"}
+          disabled={!inputContent.trim()}
         >
-          {visible ? "👇" : "👆"}
+          ➤
         </button>
       );
     }
   };
 
+  // ========== 渲染UI（核心修改：添加思考模式开关+控制显示） ==========
   return (
     <>
-      {/* 渐变模糊层 */}
-      {visible && (
-        <div
+      {!visible && (
+        <button
+          onClick={toggleChat}
           style={{
             position: "fixed",
-            bottom: "120px",
-            left: 0,
-            right: 0,
-            height: "100px",
-            background:
-              "linear-gradient(to top, rgba(255,255,255,0.8) 0%, transparent 100%)",
-            backdropFilter: "blur(8px)",
-            zIndex: 10,
-            pointerEvents: "none",
-            transition: "opacity 0.3s ease",
-            opacity: visible ? 1 : 0,
+            bottom: 30,
+            right: 30,
+            width: 60,
+            height: 60,
+            borderRadius: "50%",
+            border: "none",
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            color: "white",
+            cursor: "pointer",
+            fontSize: 24,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 12px rgba(24, 144, 255, 0.4)",
+            transition: "all 0.3s ease",
+            zIndex: 1000,
           }}
-        />
-      )}
-
-      {/* 浮动容器 */}
-      <div
-        ref={chatRef}
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "90%",
-          maxWidth: 1400,
-          zIndex: 10,
-          pointerEvents: "auto",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* 对话框 */}
-        <div
-          style={{
-            height: visible ? "calc(80vh - 100px)" : "0",
-            overflow: "hidden",
-            transition:
-              "maxHeight 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-            transform: visible ? "translateY(0)" : "translateY(20px)",
-            opacity: visible ? 1 : 0,
-            backgroundColor: "white",
-            borderRadius: visible ? "16px 16px 0 0" : "0",
-            boxShadow: "0 -2px 20px rgba(0,0,0,0.15)",
-            zIndex: 1,
+          onMouseEnter={(e) => {
+            (e.target as HTMLButtonElement).style.transform = "scale(1.1)";
+            (e.target as HTMLButtonElement).style.boxShadow = "0 6px 16px rgba(24, 144, 255, 0.5)";
+          }}
+          onMouseLeave={(e) => {
+            (e.target as HTMLButtonElement).style.transform = "scale(1)";
+            (e.target as HTMLButtonElement).style.boxShadow = "0 4px 12px rgba(24, 144, 255, 0.4)";
           }}
         >
-          {/* 标题栏 */}
+          🤖
+        </button>
+      )}
+
+      {visible && (
+        <div
+          ref={chatRef}
+          style={{
+            position: "fixed",
+            bottom: 30,
+            right: 30,
+            width: "90vw",
+            height: "80vh",
+            backgroundColor: "white",
+            borderRadius: 16,
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            display: "flex",
+            flexDirection: "column",
+            zIndex: 1000,
+            overflow: "hidden",
+          }}
+        >
           <div
             style={{
               padding: "15px 20px",
-              borderBottom: "1px solid #eee",
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              color: "white",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              backgroundColor: "#f9f9f9",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
+            <div style={{ fontSize: 18, fontWeight: "bold" }}>AI Assistant</div>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              {/* ========== 核心新增：思考模式开关按钮 ========== */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 12, opacity: isThinkingModeAvailable ? 1 : 0.5 }}>思考模式</span>
+                <button
+                  onClick={toggleThinkingMode}
+                  disabled={!isThinkingModeAvailable || isStreaming}
+                  style={{
+                    width: 40,
+                    height: 20,
+                    borderRadius: 10,
+                    border: "none",
+                    backgroundColor: isThinkingModeAvailable
+                      ? (isThinkingModeEnabled ? "#40a9ff" : "#ccc")
+                      : "#666",
+                    position: "relative",
+                    cursor: isThinkingModeAvailable && !isStreaming ? "pointer" : "not-allowed",
+                    transition: "background-color 0.3s ease",
+                    opacity: isStreaming ? 0.7 : 1,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      backgroundColor: "white",
+                      position: "absolute",
+                      top: 2,
+                      left: isThinkingModeEnabled ? 22 : 2,
+                      transition: "left 0.3s ease",
+                    }}
+                  />
+                </button>
+              </div>
+
+              {/* ========== 模型选择框（优化显示：去除(T)） ========== */}
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={modelsLoading || models.length === 0 || isStreaming}
                 style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  backgroundColor: "#007bff",
+                  padding: "4px 8px",
+                  borderRadius: 4,
+                  border: "none",
+                  background: "rgba(255,255,255,0.2)",
                   color: "white",
+                  fontSize: 12,
+                  cursor: modelsLoading ? "not-allowed" : "pointer",
+                }}
+              >
+                {modelsLoading ? (
+                  <option value="">Loading models...</option>
+                ) : models.length === 0 ? (
+                  <option value="">No models available</option>
+                ) : (
+                  models.map((model) => (
+                    <option key={model.id} value={model.id} style={{ color: "#333" }}>
+                      {model.originalName} {/* 显示去除(T)后的名称 */}
+                    </option>
+                  ))
+                )}
+              </select>
+
+              <button
+                onClick={toggleChat}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  cursor: "pointer",
+                  padding: 0,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                🤖
-              </div>
-              <h3 style={{ margin: 0, fontSize: 16 }}>AI 对话助手</h3>
+                ✕
+              </button>
             </div>
-            <button
-              onClick={toggleChat}
-              style={{
-                background: "none",
-                border: "none",
-                fontSize: 18,
-                cursor: "pointer",
-                width: 36,
-                height: 44,
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "background-color 0.2s",
-              }}
-              onMouseEnter={(e) =>
-                ((e.target as HTMLButtonElement).style.backgroundColor =
-                  "#f0f0f0")
-              }
-              onMouseLeave={(e) =>
-                ((e.target as HTMLButtonElement).style.backgroundColor =
-                  "transparent")
-              }
-            >
-              ×
-            </button>
           </div>
 
-          {/* 对话内容区 */}
           <div
             className="chat-content"
             style={{
-              height: "calc(100% - 100px)",
+              flex: 1,
               padding: "20px",
               overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 15,
               backgroundColor: "#f9f9f9",
             }}
           >
@@ -401,348 +673,276 @@ export default function AiChat({
               <div
                 key={msg.id}
                 style={{
-                  marginBottom: 20,
                   display: "flex",
-                  flexDirection: msg.sender === "user" ? "row-reverse" : "row",
-                  gap: 10,
-                  alignItems: "flex-end",
+                  justifyContent: msg.sender === "user" ? "flex-end" : "flex-start",
                 }}
               >
-                {/* 头像 */}
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "50%",
-                    backgroundColor: msg.sender === "user" ? "#eee" : "#007bff",
-                    color: msg.sender === "user" ? "#333" : "white",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                  }}
-                >
-                  {msg.sender === "user" ? "U" : "AI"}
-                </div>
-
-                {/* 消息内容和功能按钮容器 */}
                 <div
                   style={{
                     maxWidth: "70%",
-                    width: "90vw",
-                    display: "flex",
-                    flexDirection: "column",
+                    padding: "12px 16px",
+                    borderRadius: 18,
+                    background: msg.sender === "user"
+                      ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+                      : "white",
+                    color: msg.sender === "user" ? "white" : "#333",
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                    position: "relative",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    lineHeight: 1,
+                    ...(msg.sender === "ai" && { padding: "16px 20px" }),
                   }}
                 >
-                  {/* 消息内容 */}
-                  <div
-                    style={{
-                      padding: "12px 16px",
-                      borderRadius:
-                        msg.sender === "user"
-                          ? "12px 12px 0px 12px"
-                          : "12px 12px 12px 0px",
-                      backgroundColor:
-                        msg.sender === "user" ? "#e6f7ff" : "white",
-                      boxShadow: "0 3px 8px rgba(0,0,0,0.1)",
-                      position: "relative",
-                    }}
-                  >
-                    {/* 消息文本：左对齐 + 首行空两格 */}
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 14,
-                        lineHeight: 1.5,
-                        textAlign: "left", // 左对齐
-                        textIndent: "2em", // 首行空两格
-                        whiteSpace: "pre-wrap", // 保留文本中的换行/空格
-                      }}
-                    >
-                      {msg.content}
-                    </p>
-                    <p
-                      style={{
-                        margin: "8px 0 0 0",
-                        fontSize: 11,
-                        color: "#999",
-                        textAlign: "right",
-                      }}
-                    >
-                      {msg.time}
-                    </p>
-                  </div>
-
-                  {/* 功能按钮组 */}
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      marginTop: 6,
-                      padding: "4px 8px",
-                      borderRadius: 4,
-                      fontSize: 12,
-                      justifyContent:
-                        msg.sender === "user" ? "flex-end" : "flex-start",
-                    }}
-                  >
-                    {/* 用户消息功能按钮 */}
-                    {msg.sender === "user" ? (
+                  <div style={{ fontSize: 14, lineHeight: 1.5, textAlign: "left" }}>
+                    {msg.sender === "ai" ? (
                       <>
-                        <button
-                          onClick={() => {
-                            setInputContent(msg.content);
-                            if (!visible) toggleChat();
-                          }}
-                          style={{
-                            border: "none",
-                            background: "transparent",
-                            color: "#666",
-                            cursor: "pointer",
-                            padding: "2px 6px",
-                            borderRadius: 3,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 3,
-                          }}
-                          onMouseEnter={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "rgba(0,0,0,0.05)";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#333";
-                          }}
-                          onMouseLeave={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "transparent";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#666";
-                          }}
-                        >
-                          <span>✏️</span>
-                          <span>编辑</span>
-                        </button>
+                        {/* 1. 思考内容区域（仅开启思考模式且有内容时显示开关） */}
+                        {isThinkingModeEnabled && showThinkingText[msg.id] && msg.thinkingContent ? (
+                          <div style={{
+                            marginBottom: 12,
+                            padding: 12,
+                            backgroundColor: "#f0f8ff",
+                            borderRadius: 8,
+                            borderLeft: "3px solid #667eea",
+                          }}>
+                            <div style={{
+                              fontSize: 12,
+                              color: "#667eea",
+                              marginBottom: 8,
+                              fontWeight: 500
+                            }}>
+                              🧠 思考过程
+                            </div>
+                            <CustomMarkdownRenderer content={msg.thinkingContent} />
+                          </div>
+                        ) : null}
 
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(msg.content);
-                          }}
-                          style={{
-                            border: "none",
-                            background: "transparent",
-                            color: "#666",
-                            cursor: "pointer",
-                            padding: "2px 6px",
-                            borderRadius: 3,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 3,
-                          }}
-                          onMouseEnter={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "rgba(0,0,0,0.05)";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#333";
-                          }}
-                          onMouseLeave={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "transparent";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#666";
-                          }}
-                        >
-                          <span>📋</span>
-                          <span>复制</span>
-                        </button>
+                        {/* 2. 核心修改：仅开启思考模式时才显示ThinkingAnimation，否则直接显示内容 */}
+                        {isThinkingModeEnabled ? (
+                          // 开启思考模式：按原有逻辑显示动画或内容
+                          !msg.content ? (
+                            msg.id === currentAiMsgId && isStreaming ? (
+                              <ThinkingAnimation />
+                            ) : (
+                              <span style={{ color: "#999", fontStyle: "italic" }}>Trying really hard...</span>
+                            )
+                          ) : (
+                            msg.id === currentAiMsgId && isStreaming && !showThinkingText[msg.id] ? (
+                              <ThinkingAnimation />
+                            ) : (
+                              <CustomMarkdownRenderer content={msg.content} />
+                            )
+                          )
+                        ) : (
+                          // 关闭思考模式：无论是否流式中，都直接显示内容（流式输出）
+                          msg.content ? (
+                            <CustomMarkdownRenderer content={msg.content} />
+                          ) : (
+                            <span style={{ color: "#999", fontStyle: "italic" }}>Trying really hard...</span>
+                          )
+                        )}
                       </>
                     ) : (
-                      // AI消息功能按钮
-                      <>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(msg.content);
-                          }}
-                          style={{
-                            border: "none",
-                            background: "transparent",
-                            color: "#666",
-                            cursor: "pointer",
-                            padding: "2px 6px",
-                            borderRadius: 3,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 3,
-                          }}
-                          onMouseEnter={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "rgba(0,0,0,0.05)";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#333";
-                          }}
-                          onMouseLeave={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "transparent";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#666";
-                          }}
-                        >
-                          <span>📋</span>
-                          <span>复制</span>
-                        </button>
-
-                        <button
-                          style={{
-                            border: "none",
-                            background: "transparent",
-                            color: "#666",
-                            cursor: "pointer",
-                            padding: "2px 6px",
-                            borderRadius: 3,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 3,
-                          }}
-                          onMouseEnter={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "rgba(0,0,0,0.05)";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#333";
-                          }}
-                          onMouseLeave={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "transparent";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#666";
-                          }}
-                        >
-                          <span>🔄</span>
-                          <span>重新生成</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            // 添加到卡片逻辑
-                          }}
-                          style={{
-                            border: "none",
-                            background: "transparent",
-                            color: "#666",
-                            cursor: "pointer",
-                            padding: "2px 6px",
-                            borderRadius: 3,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 3,
-                          }}
-                          onMouseEnter={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "rgba(0,0,0,0.05)";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#333";
-                          }}
-                          onMouseLeave={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "transparent";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#666";
-                          }}
-                        >
-                          <span>📌</span>
-                          <span>添加到卡片</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            // 点赞逻辑
-                          }}
-                          style={{
-                            border: "none",
-                            background: "transparent",
-                            color: "#666",
-                            cursor: "pointer",
-                            padding: "2px 6px",
-                            borderRadius: 3,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 3,
-                          }}
-                          onMouseEnter={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "rgba(0,0,0,0.05)";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#333";
-                          }}
-                          onMouseLeave={(e) => {
-                            (
-                              e.target as HTMLButtonElement
-                            ).style.backgroundColor = "transparent";
-                            (e.target as HTMLButtonElement).style.color =
-                              "#666";
-                          }}
-                        >
-                          <span>👍</span>
-                          <span>点赞</span>
-                        </button>
-                      </>
+                      // 用户消息
+                      <span>{msg.content}</span>
                     )}
                   </div>
+
+                  {/* 核心修改：仅开启思考模式且有思考内容时显示开关 */}
+                  {msg.sender === "ai" && isThinkingModeEnabled && msg.thinkingContent && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        paddingTop: 8,
+                        borderTop: "1px solid #eee",
+                        display: "flex",
+                        gap: 8,
+                        fontSize: 12,
+                        alignItems: "center",
+                      }}
+                    >
+                      {/* 思考内容开关（永久显示，无论是否流式结束） */}
+                      <button
+                        onClick={() => toggleThinkingText(msg.id)}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#667eea",
+                          cursor: "pointer",
+                          padding: "2px 6px",
+                          borderRadius: 3,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 3,
+                          fontWeight: 500,
+                        }}
+                      >
+                        {showThinkingText[msg.id] ? "收起思考" : "展开思考"}
+                      </button>
+                      {/* 原有按钮 */}
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(msg.content);
+                          message.success("Message copied to clipboard");
+                        }}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#666",
+                          cursor: "pointer",
+                          padding: "2px 6px",
+                          borderRadius: 3,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                      >
+                        📋 Copy
+                      </button>
+                      <button
+                        onClick={() => message.info("Regenerate function to be implemented")}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#666",
+                          cursor: "pointer",
+                          padding: "2px 6px",
+                          borderRadius: 3,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                      >
+                        🔄 Regenerate
+                      </button>
+                      <button
+                        onClick={() => message.info("Like function to be implemented")}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#666",
+                          cursor: "pointer",
+                          padding: "2px 6px",
+                          borderRadius: 3,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                      >
+                        👍 Like
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 无思考模式时仅显示基础操作按钮 */}
+                  {msg.sender === "ai" && !isThinkingModeEnabled && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        paddingTop: 8,
+                        borderTop: "1px solid #eee",
+                        display: "flex",
+                        gap: 8,
+                        fontSize: 12,
+                        alignItems: "center",
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(msg.content);
+                          message.success("Message copied to clipboard");
+                        }}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#666",
+                          cursor: "pointer",
+                          padding: "2px 6px",
+                          borderRadius: 3,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                      >
+                        📋 Copy
+                      </button>
+                      <button
+                        onClick={() => message.info("Regenerate function to be implemented")}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#666",
+                          cursor: "pointer",
+                          padding: "2px 6px",
+                          borderRadius: 3,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                      >
+                        🔄 Regenerate
+                      </button>
+                      <button
+                        onClick={() => message.info("Like function to be implemented")}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#666",
+                          cursor: "pointer",
+                          padding: "2px 6px",
+                          borderRadius: 3,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                      >
+                        👍 Like
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* 底部输入框 */}
-        <div
-          style={{
-            padding: "15px 0",
-            display: "flex",
-            gap: 10,
-            backgroundColor: "rgba(255, 255, 255, 0.9)",
-            backdropFilter: "blur(10px)",
-            borderRadius: visible ? "0 0 16px 16px" : "16px",
-            boxShadow: "0 -2px 15px rgba(0,0,0,0.1)",
-            borderTop: visible ? "1px solid #eee" : "none",
-            position: "relative",
-            zIndex: 2,
-          }}
-        >
-          <input
-            type="text"
-            value={inputContent}
-            onChange={(e) => setInputContent(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="输入内容或提问..."
-            disabled={isStreaming} // 流式输出时禁用输入框
+          <div
             style={{
-              flex: 1,
-              padding: "14px 20px",
-              borderRadius: 30,
-              border: "none",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
-              outline: "none",
-              fontSize: 15,
-              boxSizing: "border-box",
+              padding: 15,
+              boxShadow: "0 -2px 15px rgba(0,0,0,0.1)",
+              borderTop: visible ? "1px solid #eee" : "none",
+              position: "relative",
+              zIndex: 2,
               backgroundColor: "white",
-              marginLeft: "2%",
-              marginRight: "2%",
-              opacity: isStreaming ? 0.7 : 1, // 流式输出时输入框置灰
             }}
-          />
-          {renderBottomButton()}
+          >
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <input
+                type="text"
+                value={inputContent}
+                onChange={(e) => setInputContent(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type your message here..."
+                disabled={isStreaming || models.length === 0}
+                style={{
+                  flex: 1,
+                  padding: "14px 20px",
+                  borderRadius: 30,
+                  border: "none",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+                  outline: "none",
+                  fontSize: 15,
+                  boxSizing: "border-box",
+                  backgroundColor: "#f5f5f5",
+                  marginLeft: 10,
+                  opacity: isStreaming || models.length === 0 ? 0.7 : 1,
+                }}
+              />
+              {renderBottomButton()}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

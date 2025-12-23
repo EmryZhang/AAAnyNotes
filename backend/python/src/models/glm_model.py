@@ -1,97 +1,117 @@
-﻿# -*- coding: utf-8 -*-
-import os
-import json
+# -*- coding: utf-8 -*-
 import asyncio
 from typing import Generator, AsyncGenerator
 import httpx
-from config.glm_config import GLMConfig
-from config.settings import settings
+from config import GLMConfig, KimiConfig, get_model_config
 from common.models import StreamChunk
 
 
 class GLMModel:
     """GLM model wrapper for streaming chat completion"""
     
-    def __init__(self, config: GLMConfig = None):
-        self.config = config or settings.get_glm_config()
+    def __init__(self, config: GLMConfig = None, model_id=None):
+        self.config = config or get_model_config("glm")
+        self.model_id = model_id or "glm-4"
         
-        if not self.config.api_key:
+        if not self.config.get_api_key():
             raise ValueError("GLM_API_KEY environment variable is required")
-    
-    def stream_chat(self, messages: list, **kwargs) -> Generator[StreamChunk, None, None]:
-        glm_messages = []
-        for msg in messages:
-            glm_messages.append({
-                "role": "user" if msg.sender == "user" else "assistant",
-                "content": msg.content
-            })
-        
-        payload = {
-            "model": self.config.model,
-            "messages": glm_messages,
-            "stream": True,
-            "temperature": kwargs.get("temperature", 0.7),
-            "top_p": kwargs.get("topP", 0.9),
-            "max_tokens": kwargs.get("maxTokens", 2000),
-            "frequency_penalty": kwargs.get("frequencyPenalty", 0.0),
-            "presence_penalty": kwargs.get("presencePenalty", 0.0),
-        }
-        
-        if kwargs.get("stop"):
-            payload["stop"] = kwargs["stop"]
-        
-        headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
+            
+        self.base_url = self.config.get_base_url()
+        self.headers = {
+            "Authorization": f"Bearer {self.config.get_api_key()}",
             "Content-Type": "application/json"
         }
         
+    def stream_chat(self, messages, temperature=0.7, max_tokens=2000, **kwargs):
+        """Stream chat completion from GLM API
+        
+        Args:
+            messages: List of message dictionaries with 'sender' and 'content'
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            **kwargs: Additional parameters
+            
+        Yields:
+            StreamChunk objects
+        """
+        # Convert to GLM API format - handle both Message objects and dictionaries
+        api_messages = []
+        for msg in messages:
+            # Handle both Message objects and dictionaries
+            if hasattr(msg, 'sender') and hasattr(msg, 'content'):
+                # Message object
+                sender = msg.sender
+                content = msg.content
+            else:
+                # Dictionary format
+                sender = msg.get("sender", "user")
+                content = msg.get("content", "")
+                
+            role = "user" if sender == "user" else "assistant"
+            api_messages.append({
+                "role": role,
+                "content": content
+            })
+        
+        payload = {
+            "model": self.model_id,
+            "messages": api_messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True
+        }
+        
         try:
-            with httpx.Client(timeout=60.0) as client:
-                with client.stream(
-                    "POST",
-                    f"{self.config.base_url}chat/completions",
-                    headers=headers,
-                    json=payload
-                ) as response:
-                    response.raise_for_status()
-                    
-                    for line in response.iter_lines():
-                        if line.strip():
-                            if line.startswith("data: "):
-                                line = line[6:]
+            with httpx.stream(
+                "POST",
+                f"{self.base_url}chat/completions",
+                headers=self.headers,
+                json=payload,
+                timeout=60.0
+            ) as response:
+                response.raise_for_status()
+                
+                for line in response.iter_lines():
+                    if line.startswith("data: "):
+                        data_str = line[6:]  # Remove "data: " prefix
+                        if data_str.strip() == "[DONE]":
+                            break
                             
-                            if line.strip() == "[DONE]":
-                                break
+                        try:
+                            import json
+                            data = json.loads(data_str)
                             
-                            try:
-                                data = json.loads(line)
-                                if "choices" in data and len(data["choices"]) > 0:
-                                    delta = data["choices"][0].get("delta", {})
-                                    if "content" in delta:
-                                        content = delta["content"]
-                                        finish_reason = data["choices"][0].get("finish_reason")
-                                        finished = finish_reason is not None
-                                        yield StreamChunk(content=content, finished=finished)
-                            except json.JSONDecodeError:
-                                continue
-                        
-        except httpx.HTTPError as e:
-            error_msg = f"GLM API error: {str(e)}"
-            yield StreamChunk(content=error_msg, finished=True)
+                            if "choices" in data and len(data["choices"]) > 0:
+                                choice = data["choices"][0]
+                                if "delta" in choice and "content" in choice["delta"]:
+                                    content = choice["delta"]["content"]
+                                    finished = choice.get("finish_reason") is not None
+                                    
+                                    yield StreamChunk(
+                                        content=content,
+                                        finished=finished
+                                    )
+                        except json.JSONDecodeError:
+                            continue
+                            
         except Exception as e:
-            error_msg = f"Unexpected error: {str(e)}"
-            yield StreamChunk(content=error_msg, finished=True)
+            yield StreamChunk(
+                content=f"GLM API error: {str(e)}",
+                finished=True
+            )
 
 
-class BaseModel:
-    """Base model interface for future extensibility"""
-    
-    def stream_chat(self, messages: list, **kwargs) -> Generator[StreamChunk, None, None]:
-        raise NotImplementedError("Subclasses must implement stream_chat method")
-
-
-def create_model(model_type: str, **kwargs) -> BaseModel:
-    if model_type.lower() == "glm" or model_type.lower().startswith("glm-"):
-        return GLMModel()
+def create_model(model_type: str, model_id=None):
+    """Factory function to create model instances"""
+    if model_type.lower() == "glm":
+        return GLMModel(model_id=model_id)
+    elif model_type.lower() == "kimi":
+        # Import KimiModel only when needed to avoid dependency issues
+        try:
+            from .kimi_model import KimiModel
+            return KimiModel(model_id=model_id)
+        except ImportError:
+            raise ValueError("Kimi model requires openai package to be installed")
     else:
-        return GLMModel()
+        raise ValueError(f"Unsupported model type: {model_type}")
+

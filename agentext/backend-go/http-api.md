@@ -1,93 +1,153 @@
-ï»¿# Go HTTP API Context
+# Go Backend HTTP API Documentation
 
-## 1. Module Focus
-This module provides context for implementing the Go HTTP API server that serves as the core backend for the AAAnynotes application. It handles all HTTP requests, manages business logic, performs database operations, and ensures data consistency. The API layer acts as the central hub between the frontend client, Python AI services, and the database.
+## Module Overview
+The Go backend serves as the API gateway and HTTP interface for the AAAnyNotes application. It handles REST API endpoints, authentication, and database operations.
 
-## 2. File Locations
+## Architecture
+```
+HTTP Request ¡ú Gin Router ¡ú HTTP Handler ¡ú Service Layer ¡ú Repository/Database
+```
+
+## File Structure
 ```
 backend/go/
-â”œâ”€â”€ cmd/
-â”‚   â””â”€â”€ api/
-â”‚       â””â”€â”€ main.go           # Application entry point and server setup
-â”œâ”€â”€ internal/
-â”‚   â”œâ”€â”€ api/                 # HTTP handlers and route definitions
-â”‚   â”‚   â”œâ”€â”€ handlers/        # Request handlers
-â”‚   â”‚   â”‚   â”œâ”€â”€ auth.go      # Authentication handlers
-â”‚   â”‚   â”‚   â”œâ”€â”€ notes.go     # Notes CRUD handlers
-â”‚   â”‚   â”‚   â””â”€â”€ user.go      # User management handlers
-â”‚   â”‚   â””â”€â”€ routes.go        # Route definitions
-â”‚   â”œâ”€â”€ models/              # Data models and structs
-â”‚   â”‚   â”œâ”€â”€ user.go          # User model
-â”‚   â”‚   â”œâ”€â”€ note.go          # Note model
-â”‚   â”‚   â””â”€â”€ auth.go          # Authentication models
-â”‚   â”œâ”€â”€ services/            # Business logic layer
-â”‚   â”‚   â”œâ”€â”€ auth_service.go  # Authentication logic
-â”‚   â”‚   â”œâ”€â”€ note_service.go  # Notes business logic
-â”‚   â”‚   â””â”€â”€ user_service.go  # User management logic
-â”‚   â”œâ”€â”€ database/            # Database configuration and migrations
-â”‚   â”‚   â”œâ”€â”€ connection.go    # DB connection setup
-â”‚   â”‚   â””â”€â”€ migrations/      # Database migrations
-â”‚   â”œâ”€â”€ middleware/          # HTTP middleware
-â”‚   â”‚   â”œâ”€â”€ auth.go          # Authentication middleware
-â”‚   â”‚   â”œâ”€â”€ cors.go          # CORS handling
-â”‚   â”‚   â””â”€â”€ logging.go       # Request logging
-â”‚   â””â”€â”€ utils/               # Utility functions
-â”‚       â”œâ”€â”€ response.go      # Response helpers
-â”‚       â””â”€â”€ validation.go    # Input validation
-â”œâ”€â”€ pkg/                     # Public library code
-â”œâ”€â”€ configs/                 # Configuration files
-â””â”€â”€ tests/                   # Test files
+©À©¤©¤ cmd/
+©¦   ©¸©¤©¤ api/
+©¦       ©¸©¤©¤ main.go              # Application entry point
+©À©¤©¤ internal/
+©¦   ©À©¤©¤ config/                 # Configuration management
+©¦   ©¦   ©¸©¤©¤ config.go
+©¦   ©À©¤©¤ domain/                  # Domain models and business logic
+©¦   ©¦   ©À©¤©¤ card/              # Card domain models
+©¦   ©¦   ©À©¤©¤ chat/              # Chat domain models
+©¦   ©¦   ©¦   ©À©¤©¤ model/         # Chat domain models
+©¦   ©¦   ©¦   ©¸©¤©¤ service/     # Chat services
+©¦   ©¦   ©¸©¤©¤ share/            # Shared domain models
+©¦   ©À©¤©¤ infrastructure/         # Infrastructure layer
+©¦   ©¦   ©À©¤©¤ grpc/             # gRPC communication
+©¦   ©¦   ©¸©¤©¤ storage/          # Database storage
+©¦   ©¸©¤©¤ interface/
+©¦       ©¸©¤©¤ http/              # HTTP interface layer
+©¦           ©À©¤©¤ routes.go        # Route definitions
+©¦           ©¸©¤©¤ handlers/         # HTTP handlers
+©¸©¤©¤ pkg/                        # Public packages
 ```
 
-## 3. Feature Implementation
-### Currently Implemented Features
-- **RESTful API**: Standard HTTP methods for CRUD operations
-- **Authentication**: JWT-based authentication with refresh tokens
-- **Notes Management**: Full CRUD operations for notes
-- **User Management**: User registration, login, profile management
-- **Database Integration**: GORM for database operations
-- **Request Validation**: Input validation and sanitization
-- **Error Handling**: Consistent error responses and logging
-- **CORS Support**: Cross-origin resource sharing configuration
-- **Middleware Pipeline**: Authentication, logging, CORS handling
+## Key Components
 
-### API Endpoints
-- **Authentication**: `/api/auth/login`, `/api/auth/register`, `/api/auth/refresh`
-- **Users**: `/api/users/profile`, `/api/users/update`
-- **Notes**: `/api/notes` (GET, POST, PUT, DELETE), `/api/notes/:id`
-- **Health**: `/api/health` for service health checks
+### HTTP Interface Layer (`internal/interface/http/`)
+**Purpose**: Define HTTP API contracts and routing
 
-## 4. Technical Patterns
-### Technologies Used
-- **Go 1.21+**: Core programming language
-- **Gin Framework**: HTTP web framework
-- **GORM**: Object-relational mapping for database operations
-- **SQLite/PostgreSQL**: Database backends
-- **JWT**: JSON Web Tokens for authentication
-- **bcrypt**: Password hashing
+**Files**:
+- `routes.go`: API route definitions and middleware setup
+- `handlers/`: HTTP request handlers for different endpoints
 
-### Coding Style & Patterns
-- **Standard Go Formatting**: `go fmt` compliance
-- **Package Organization**: Clean architecture with internal packages
-- **Interface-Based Design**: Dependency injection using interfaces
-- **Error Handling**: Explicit error returns with proper HTTP status codes
-- **Middleware Pattern**: Request processing pipeline
-- **Repository Pattern**: Data access abstraction
-- **Service Layer**: Business logic separation
+**Keywords**: route, handler, endpoint, HTTP request, middleware
 
-### Design Patterns
-- **Clean Architecture**: Separation of concerns with layered approach
-- **Dependency Injection**: Interface-based dependency management
-- **Repository Pattern**: Data access layer abstraction
-- **Service Layer Pattern**: Business logic encapsulation
-- **Middleware Pattern**: Cross-cutting concerns handling
-- **Factory Pattern**: Handler and service creation
-- **Builder Pattern**: Response construction
+### Domain Layer (`internal/domain/`)
+**Purpose**: Business logic and domain models
 
-### API Design Principles
-- **RESTful Design**: Proper HTTP methods and status codes
-- **JSON Responses**: Consistent JSON response format
-- **Versioning**: API versioning through URL paths
-- **Pagination**: List responses with pagination support
-- **Validation**: Request validation with proper error messages
-- **Security**: Input sanitization and SQL injection prevention
+**Files**:
+- `card/`: Card domain models and business rules
+- `chat/`: Chat domain models and services
+- `share/`: Shared domain models
+
+**Keywords**: domain, model, business logic, validation
+
+### Infrastructure Layer (`internal/infrastructure/`)
+**Purpose**: External service integrations and data persistence
+
+**Files**:
+- `grpc/`: gRPC client for Python AI service communication
+- `storage/`: Database operations and GORM models
+
+**Keywords**: database, GORM, repository, external service
+
+
+## API Endpoints
+
+### Card Management
+- `GET /api/cards` - List all cards
+- `POST /api/cards` - Create new card
+- `PUT /api/cards/{id}` - Update card
+- `DELETE /api/cards/{id}` - Delete card
+
+### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/refresh` - Token refresh
+
+### Chat/Communication
+- `POST /api/chat/send` - Send chat message
+- `GET /api/chat/history/{userId}` - Get chat history
+- `POST /api/chat/stream` - Stream chat response
+
+## Technology Stack
+- **Framework**: Gin HTTP framework
+- **Database**: GORM ORM
+- **Communication**: gRPC with Python backend
+- **Authentication**: JWT tokens
+- **Configuration**: Environment-based config management
+
+## Development Guidelines
+
+### Code Style (Following AGENTS.md)
+- Use standard Go formatting (`go fmt`)
+- camelCase for variables, PascalCase for exported types/functions
+- ALL code comments MUST be in English
+- ALL error messages MUST be in English
+- ALL log messages MUST be in English
+
+### Error Handling
+```go
+func (h *ChatHandler) HandleChat(c *gin.Context) {
+    try {
+        // Business logic
+    } catch (err error) {
+        logger.Error("Failed to process chat request", "error", err)
+        c.JSON(500, gin.H{"error": "Internal server error"})
+        return
+    }
+}
+```
+
+### Request/Response Patterns
+```go
+// Request DTO
+type CreateCardRequest struct {
+    Title   string `json:"title" binding:"required"`
+    Content string `json:"content"`
+    Tags    []string `json:"tags"`
+}
+
+// Response DTO
+type APIResponse struct {
+    Success bool        `json:"success"`
+    Data    interface{} `json:"data,omitempty"`
+    Error   string      `json:"error,omitempty"`
+}
+```
+
+### Database Operations
+```go
+// Repository pattern
+type CardRepository interface {
+    Create(card *domain.Card) error
+    GetByID(id string) (*domain.Card, error)
+    GetAll() ([]*domain.Card, error)
+    Update(card *domain.Card) error
+    Delete(id string) error
+}
+```
+
+## Testing Guidelines
+- Use standard `testing` package with `_test.go` suffix
+- Mock external dependencies (database, gRPC client)
+- Write table-driven tests for business logic
+- Test HTTP handlers using httptest package
+
+## Performance Considerations
+- Implement connection pooling for database
+- Use gRPC streaming for large responses
+- Add appropriate caching layers
+- Implement request timeouts and rate limiting

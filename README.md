@@ -2,21 +2,56 @@
 
 Establish your knowledge base **Anytime**, **Anywhere**, and in **Any** way!
 
-## 📖 Overview
+## 🏗️ AI AGENT WORKING RULES - MANDATORY
+
+### CRITICAL WORKFLOW - MUST FOLLOW
+
+**BEFORE ANY CODE WORK**:
+1. ALWAYS read this README.md first - NO EXCEPTIONS
+2. ALWAYS use the project structure to locate files
+3. ALWAYS understand the technology stack before making changes
+
+**AFTER ANY CODE WORK**:
+1. ALWAYS verify all services still work together
+2. NEVER break the three-tier architecture (Frontend → Go API → Python AI)
+3. ALWAYS update documentation when making structural changes
+
+### FORBIDDEN ACTIONS - DO NOT VIOLATE
+
+**NEVER DO THESE**:
+- NEVER modify ports 5173 (Frontend), 8080 (Go API), 8000 (Python AI)
+- NEVER break the conda environment dependency ( sj for Python)
+- NEVER change the startup scripts (start.bat, scripts/start-all.ps1)
+- EVER introduce conflicting dependencies between services
+- NEVER modify core architectural patterns without understanding all impacts
+
+### DEVELOPMENT RULES
+
+**MODULE-SPECIFIC WORK**:
+- Frontend: React + TypeScript + Vite + Ant Design
+- Go Backend: Gin framework, clean architecture
+- Python Backend: FastAPI with async processing
+
+**CROSS-MODULE WORK**:
+- Understand the data flow: Frontend → Go API → Python AI → LLM
+- Respect API contracts between services
+- Maintain backward compatibility
+
+## 📋 Project Overview
 
 AAAnyNotes is a comprehensive note-taking web application designed for modern educational environments. It combines intelligent AI-powered features with robust knowledge management capabilities, creating an ecosystem that serves both educators and students.
 
 Built with a polyglot architecture, the system leverages the best of modern web technologies to deliver a seamless, responsive experience for knowledge creation, organization, and collaboration.
 
-## ✨ Key Features
+## 🚀 Key Features
 
-### 🎯 Core Functionality
+### 💻 Core Functionality
 - **Smart Note Management**: Create, edit, and organize notes with rich text support
 - **AI-Powered Chat**: Integrated large language model for intelligent content assistance
 - **User Authentication**: Secure login system with JWT-based authorization
 - **Real-time Updates**: Responsive UI with live data synchronization
 
-### 🚀 Technology Stack
+### ⚙️ Technology Stack
 
 #### Frontend
 - **React 19** with TypeScript for type-safe development
@@ -30,18 +65,17 @@ Built with a polyglot architecture, the system leverages the best of modern web 
 - **SQLite/PostgreSQL** with GORM for data persistence
 - **Streaming responses** for real-time AI interactions
 
-### 🎨 User Experience
+### 🎯 User Experience
 - **Responsive Design**: Works seamlessly across desktop, tablet, and mobile
 - **Intuitive Interface**: Clean, modern UI following best UX practices
 - **Fast Performance**: Optimized for quick loading and smooth interactions
 
-## 🚀 Quick Start
+## 🏃 Quick Start
 
 ### Prerequisites
 - **Node.js 18+** and **pnpm** for frontend development
 - **Go 1.21+** for backend API
-- **Python 3.9+** with **conda** environment "sj"
-- **GLM API Key** for AI functionality (optional for basic features)
+- **Python 3.9+** with **conda** environment sj GLM API Key** for AI functionality (optional for basic features)
 
 ### One-Click Startup (Windows)
 
@@ -79,19 +113,24 @@ go build ./...           # Build all packages
 go test ./...             # Run tests
 ```
 
-#### Python AI Service
+#### Python AI Service (CRITICAL - MUST USE CONDA ENV)
 ```bash
 cd backend/python
-conda activate sj         # Activate conda environment
+conda activate sj         # MUST use sj conda environment
 python src/main.py        # Start FastAPI server on http://localhost:8000
 ```
 
-## 🏗️ Architecture
+**⚠️ CRITICAL**: Python backend requires specific conda environment:
+- Environment Path: `D:/Environments/Miniconda/envs/sj`
+- Activation Command: `conda activate sj`
+- Full Python Startup: `D:/Environments/Miniconda/envs/sj/python.exe src/main.py`
+
+## 🏛️ Architecture
 
 ### System Flow
 ```
-Frontend (5173) → Go API (8080) → Python AI (8000)
-     ↓              ↓                ↓
+Frontend (5173) ↙ Go API (8080) ↙ Python AI (8000)
+     ∣              ∣                ∣
   React UI     HTTP API        FastAPI + GLM
 ```
 
@@ -125,26 +164,17 @@ AAAnynotes/
 │       └── main.py          # Service entry point
 ├── config/                  # Configuration files
 ├── docs/                    # Project documentation
-└── agent-context/           # AI agent documentation
+├── agentext/                # AI agent documentation
+└── scripts/                 # Build and deployment scripts
 ```
 
-## 🔧 Configuration
-
-### Environment Variables
-Create a `.env` file in the project root or backend/python directory:
-
-```env
-# GLM AI Configuration
-GLM_API_KEY=your_glm_api_key_here
-GLM_MODEL=glm-4
-GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4/
-```
+## ⚙️ Configuration
 
 ### Database Configuration
 - **Development**: Uses SQLite by default (no configuration needed)
 - **Production**: Configure PostgreSQL connection in settings
 
-## 🧪 Development
+## 🛠️ Development
 
 ### Code Quality
 - **TypeScript**: Strict type checking for frontend code
@@ -162,7 +192,7 @@ GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4/
 - **Go Backend**: `go build` creates standalone executable
 - **Python Service**: Package as Docker container for deployment
 
-## 🛠️ API Documentation
+## 📚 API Documentation
 
 ### Go API Endpoints
 - `GET/POST /api/auth/*` - Authentication and user management
@@ -176,10 +206,11 @@ GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4/
 
 We welcome contributions! Please follow our development guidelines:
 
-1. Read the `agent-context/index.md` for AI agent working rules
+1. ALWAYS read this README.md first before making changes
 2. Follow the existing code style and patterns
 3. Add tests for new features
 4. Update documentation for any API changes
+5. Never break the three-service architecture
 
 ## 📄 License
 
@@ -189,9 +220,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - **Issues**: Report bugs via GitHub Issues
 - **Questions**: Start discussions in GitHub Discussions
-- **Documentation**: Check `agent-context/` for detailed technical docs
+- **Documentation**: Check `agentext/` for detailed technical docs
 
-## 🌟 Future Roadmap
+## 🗺️ Future Roadmap
 
 While the current implementation provides solid note-taking and AI chat functionality, we have exciting plans for the future:
 

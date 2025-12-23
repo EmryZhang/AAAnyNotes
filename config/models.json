@@ -1,0 +1,376 @@
+{
+  "models": [
+    {
+      "id": "glm-4",
+      "name": "GLM-4",
+      "provider": "Zhipu AI",
+      "description": "Zhipu AI large model, supports Chinese and English dialogue",
+      "type": "glm",
+      "envKey": "GLM_API_KEY",
+      "enabled": true,
+      "maxTokens": 8192,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "multilingual"]
+    },
+    {
+      "id": "kimi-k2-thinking",
+      "name": "Kimi K2 Thinking(T)",
+      "provider": "Moonshot AI",
+      "description": "Moonshot AI Kimi model, high-speed response",
+      "type": "kimi",
+      "envKey": "MOONSHOT_API_KEY",
+      "enabled": true,
+      "maxTokens": 32768,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.3
+      },
+      "features": ["chat", "streaming", "long-context", "thinking"],
+      "supportsThinkingMode": true
+    },
+    {
+      "id": "kimi-k2-turbo-preview",
+      "name": "Kimi K2 Turbo",
+      "provider": "Moonshot AI",
+      "description": "Moonshot AI Kimi model, high-speed response",
+      "type": "kimi",
+      "envKey": "MOONSHOT_API_KEY",
+      "enabled": true,
+      "maxTokens": 32768,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.3
+      },
+      "features": [
+        "chat",
+        "streaming",
+        "long-context"
+      ]
+    },
+    {
+      "id": "gpt-4",
+      "name": "GPT-4",
+      "provider": "OpenAI",
+      "description": "OpenAI advanced dialogue model",
+      "type": "openai",
+      "envKey": "OPENAI_API_KEY",
+      "enabled": true,
+      "maxTokens": 8192,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "code-generation"]
+    },
+    {
+      "id": "gpt-3.5-turbo",
+      "name": "GPT-3.5 Turbo",
+      "provider": "OpenAI",
+      "description": "OpenAI classic dialogue model",
+      "type": "openai",
+      "envKey": "OPENAI_API_KEY",
+      "enabled": false,
+      "maxTokens": 4096,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "fast-response"]
+    },
+    {
+      "id": "claude-3-sonnet-20240229",
+      "name": "Claude 3 Sonnet",
+      "provider": "Anthropic",
+      "description": "Anthropic Claude 3 model",
+      "type": "claude",
+      "envKey": "ANTHROPIC_API_KEY",
+      "enabled": true,
+      "maxTokens": 4096,
+      "temperature": {
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "analysis", "long-context"]
+    },
+    {
+      "id": "claude-3-opus-20240229",
+      "name": "Claude 3 Opus",
+      "provider": "Anthropic",
+      "description": "Anthropic Claude 3 Opus model",
+      "type": "claude",
+      "envKey": "ANTHROPIC_API_KEY",
+      "enabled": false,
+      "maxTokens": 4096,
+      "temperature": {
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "analysis", "highest-quality"]
+    },
+    {
+      "id": "gpt-4-turbo",
+      "name": "GPT-4 Turbo",
+      "provider": "Microsoft Azure",
+      "description": "Azure OpenAI GPT-4 Turbo model with enterprise security",
+      "type": "azure",
+      "envKey": "AZURE_API_KEY",
+      "enabled": true,
+      "maxTokens": 128000,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "enterprise", "long-context"]
+    },
+    {
+      "id": "gemini-pro",
+      "name": "Gemini Pro",
+      "provider": "Google",
+      "description": "Google Gemini Pro model",
+      "type": "gemini",
+      "envKey": "GEMINI_API_KEY",
+      "enabled": true,
+      "maxTokens": 32768,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.9
+      },
+      "features": ["chat", "streaming", "multimodal", "multilingual"]
+    },
+    {
+      "id": "ernie-4.0",
+      "name": "ERNIE 4.0",
+      "provider": "Baidu",
+      "description": "Baidu ERNIE 4.0 model",
+      "type": "baidu",
+      "envKey": "BAIDU_API_KEY",
+      "enabled": true,
+      "maxTokens": 8192,
+      "temperature": {
+        "min": 0.1,
+        "max": 1.0,
+        "default": 0.8
+      },
+      "features": ["chat", "streaming", "chinese-optimized"]
+    },
+    {
+      "id": "hunyuan-pro",
+      "name": "Hunyuan Pro",
+      "provider": "Tencent",
+      "description": "Tencent Hunyuan Pro model",
+      "type": "tencent",
+      "envKey": "TENCENT_API_KEY",
+      "enabled": true,
+      "maxTokens": 16384,
+      "temperature": {
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "chinese-optimized"]
+    },
+    {
+      "id": "llama-2-70b-chat",
+      "name": "Llama 2 70B Chat",
+      "provider": "Hugging Face",
+      "description": "Meta Llama 2 70B chat model",
+      "type": "huggingface",
+      "envKey": "HUGGINGFACE_API_KEY",
+      "enabled": false,
+      "maxTokens": 4096,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.7
+      },
+      "features": ["chat", "open-source", "large-model"]
+    },
+    {
+      "id": "command",
+      "name": "Cohere Command",
+      "provider": "Cohere",
+      "description": "Cohere Command model",
+      "type": "cohere",
+      "envKey": "COHERE_API_KEY",
+      "enabled": false,
+      "maxTokens": 4096,
+      "temperature": {
+        "min": 0.0,
+        "max": 5.0,
+        "default": 0.3
+      },
+      "features": ["chat", "streaming", "retrieval-augmented"]
+    },
+    {
+      "id": "llama-3-70b-instruct",
+      "name": "Llama 3 70B Instruct",
+      "provider": "Perplexity",
+      "description": "Perplexity Llama 3 70B instruct model",
+      "type": "perplexity",
+      "envKey": "PERPLEXITY_API_KEY",
+      "enabled": false,
+      "maxTokens": 16384,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "instruct-tuned"]
+    },
+    {
+      "id": "mistral-large",
+      "name": "Mistral Large",
+      "provider": "Mistral AI",
+      "description": "Mistral Large model",
+      "type": "mistral",
+      "envKey": "MISTRAL_API_KEY",
+      "enabled": false,
+      "maxTokens": 32768,
+      "temperature": {
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "multilingual", "reasoning"]
+    },
+    {
+      "id": "llama-3-70b-8192",
+      "name": "Llama 3 70B",
+      "provider": "Groq",
+      "description": "Groq Llama 3 70B model with fast inference",
+      "type": "groq",
+      "envKey": "GROQ_API_KEY",
+      "enabled": false,
+      "maxTokens": 8192,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "fast-inference"]
+    },
+    {
+      "id": "meta-llama-3-70b-instruct",
+      "name": "Llama 3 70B Instruct",
+      "provider": "Together AI",
+      "description": "Together AI Llama 3 70B instruct model",
+      "type": "together",
+      "envKey": "TOGETHER_API_KEY",
+      "enabled": false,
+      "maxTokens": 8192,
+      "temperature": {
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.7
+      },
+      "features": ["chat", "streaming", "cost-effective"]
+    }
+  ],
+  "defaultModel": "kimi-k2-turbo-preview",
+  "modelTypes": {
+    "glm": {
+      "category": "chinese-models",
+      "region": "china",
+      "languageSupport": ["zh", "en"]
+    },
+    "kimi": {
+      "category": "chinese-models",
+      "region": "china",
+      "languageSupport": ["zh", "en"]
+    },
+    "openai": {
+      "category": "western-models",
+      "region": "global",
+      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+    },
+    "claude": {
+      "category": "western-models",
+      "region": "global",
+      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+    },
+    "azure": {
+      "category": "enterprise-models",
+      "region": "global",
+      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+    },
+    "gemini": {
+      "category": "western-models",
+      "region": "global",
+      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+    },
+    "baidu": {
+      "category": "chinese-models",
+      "region": "china",
+      "languageSupport": ["zh", "en"]
+    },
+    "tencent": {
+      "category": "chinese-models",
+      "region": "china",
+      "languageSupport": ["zh", "en"]
+    },
+    "huggingface": {
+      "category": "open-source-models",
+      "region": "global",
+      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+    },
+    "cohere": {
+      "category": "specialized-models",
+      "region": "global",
+      "languageSupport": ["en", "zh", "es", "fr", "de"]
+    },
+    "perplexity": {
+      "category": "specialized-models",
+      "region": "global",
+      "languageSupport": ["en", "zh", "es", "fr"]
+    },
+    "mistral": {
+      "category": "western-models",
+      "region": "global",
+      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+    },
+    "groq": {
+      "category": "specialized-models",
+      "region": "global",
+      "languageSupport": ["en", "zh", "es", "fr", "de"]
+    },
+    "together": {
+      "category": "specialized-models",
+      "region": "global",
+      "languageSupport": ["en", "zh", "es", "fr", "de"]
+    }
+  },
+  "categories": {
+    "chinese-models": {
+      "name": "Chinese Models",
+      "description": "Models optimized for Chinese language and context"
+    },
+    "western-models": {
+      "name": "Western Models",
+      "description": "Models from major Western AI companies"
+    },
+    "enterprise-models": {
+      "name": "Enterprise Models",
+      "description": "Enterprise-grade models with enhanced security"
+    },
+    "open-source-models": {
+      "name": "Open Source Models",
+      "description": "Open source models available for self-hosting"
+    },
+    "specialized-models": {
+      "name": "Specialized Models",
+      "description": "Models with specialized capabilities or optimizations"
+    }
+  }
+}

@@ -1,3 +1,5 @@
+﻿import React from "react";
+
 interface HeaderProps {
   onSidebarHover: () => void; // 鼠标进入按钮时触发
   onButtonMouseLeave: () => void; // 鼠标离开按钮时触发
