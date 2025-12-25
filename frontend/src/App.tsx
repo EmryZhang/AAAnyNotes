@@ -2,9 +2,10 @@
 import "./App.css";
 import Header from "./components/layout/Header";
 import Sidebar from "./components/layout/Sidebar";
-import CardGrid from "./components/layout/CardGrid";
+import CardGrid from "./components/card/CardGrid";
 import AIChatInterface from "./components/chat/AIChatInterface";
 import { initializeModels } from "./services/modelService";
+import { CardProvider } from "./components/card/CardContext";
 
 function App() {
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -92,9 +93,9 @@ function App() {
         onToggleBtnMouseEnter={handleToggleBtnMouseEnter}
         onToggleBtnMouseLeave={handleToggleBtnMouseLeave}
       />
-
+      <CardProvider>
       <CardGrid />
-
+      </CardProvider>
       <AIChatInterface 
         visible={chatVisible} 
         onVisibleChange={setChatVisible}
