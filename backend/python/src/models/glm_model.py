@@ -106,12 +106,8 @@ def create_model(model_type: str, model_id=None):
     if model_type.lower() == "glm":
         return GLMModel(model_id=model_id)
     elif model_type.lower() == "kimi":
-        # Import KimiModel only when needed to avoid dependency issues
-        try:
-            from .kimi_model import KimiModel
-            return KimiModel(model_id=model_id)
-        except ImportError:
-            raise ValueError("Kimi model requires openai package to be installed")
+        from .kimi_model import KimiModel
+        return KimiModel(model_id=model_id)
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 

@@ -1,6 +1,6 @@
 ﻿import type { ChatStreamParams, StreamChunk } from "../types/chat";
 
-// Model configuration type
+// Model configuration interfaces
 export interface ModelConfig {
   id: string;
   name: string;
@@ -9,7 +9,6 @@ export interface ModelConfig {
   type: string;
 }
 
-// Model list response type
 export interface ModelsResponse {
   models: ModelConfig[];
   defaultModel: string;
@@ -20,39 +19,28 @@ export interface ModelsResponse {
  */
 export async function getModels(): Promise<ModelsResponse> {
   const response = await fetch("/api/chat/models");
-  console.log(response);
   if (!response.ok) {
-    throw new Error(`Failed to get models list: ${response.status} ${response.statusText}`);
+    throw new Error(`Models Error: ${response.status}`);
   }
   return response.json();
 }
 
 /**
- * Core backend streaming request function (adapted from original getRes logic)
- * @param options Request parameters + cancel signal
- * @returns Streaming Response object
+ * Core backend streaming request function
  */
 export async function getRes(
   options: ChatStreamParams & { signal: AbortSignal }
 ): Promise<Response> {
-  const response = await fetch("/api/chat/stream", {
+  return fetch("/api/chat/stream", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(options),
-    signal: options.signal, // Associate cancel signal for request-level cancellation
+    signal: options.signal,
   });
-  return response;
 }
 
 /**
- * Core streaming request logic (for component calls)
- * @param params Streaming request parameters
- * @param signal Cancel signal (from component AbortController)
- * @param onChunk Callback to receive streaming data
- * @param onError Error callback
- * @param onComplete Completion callback
+ * Core streaming request handler
  */
 export async function sendChatStream(
   params: ChatStreamParams,
@@ -64,29 +52,28 @@ export async function sendChatStream(
   try {
     const response = await getRes({ ...params, signal });
 
-    if (!response.ok)
-      throw new Error(`Request failed: ${response.status} ${response.statusText}`);
-    if (!response.body) throw new Error("Backend returned empty streaming response body");
+    if (!response.ok) throw new Error(`Stream Error: ${response.status}`);
+    if (!response.body) throw new Error("Empty response body");
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
 
     while (true) {
-      if (signal.aborted) throw new DOMException("Request cancelled", "AbortError");
-
       const { done, value } = await reader.read();
+
       if (done) {
-        if (buffer.trim() !== "") {
-          processBufferChunk(buffer, onChunk);
-        }
+        if (buffer.trim()) processBufferChunk(buffer, onChunk);
         onComplete();
-        return;
+        break;
       }
+
       const chunkStr = decoder.decode(value, { stream: true });
       buffer += chunkStr;
 
+      // Split by newlines but keep the split logic robust
       const lines = buffer.split(/\r?\n/);
+      // Keep the last partial line in the buffer
       buffer = lines.pop() || "";
 
       for (const line of lines) {
@@ -94,38 +81,34 @@ export async function sendChatStream(
       }
     }
   } catch (error) {
-    if ((error as DOMException).name === "AbortError") {
+    if ((error as Error).name === "AbortError") {
       onError(new Error("Request cancelled"));
     } else {
-      onError(error instanceof Error ? error : new Error("Unknown streaming request error"));
+      onError(error instanceof Error ? error : new Error("Unknown error"));
     }
   }
 }
 
 /**
- * 抽离的辅助函数：处理单段SSE数据，保留原始换行符
- * @param line 单行SSE数据
- * @param onChunk 回调函数
+ * Helper: Process single SSE data line
  */
 function processBufferChunk(line: string, onChunk: (content: string, finished: boolean) => void) {
   const trimmedLine = line.trim();
-  if (!trimmedLine || trimmedLine.startsWith(":")) return;
+  if (!trimmedLine || !trimmedLine.startsWith("data: ")) return;
+
+  const jsonStr = trimmedLine.slice(6).trim();
+  if (!jsonStr || jsonStr === "[DONE]" || jsonStr === "[HEARTBEAT]") return;
 
   try {
-    if (trimmedLine.startsWith("data: ")) {
-      const jsonStr = trimmedLine.slice(6).trim();
-      if (!jsonStr || jsonStr === "[DONE]") return;
+    const chunkData = JSON.parse(jsonStr) as StreamChunk;
 
-      const chunkData = JSON.parse(jsonStr) as StreamChunk;
-      let content = chunkData.content || "";
+    // Pass the raw inner JSON string (which contains type and content) to the component
+    // The component's parseChunkData will handle the inner parsing
+    const content = chunkData.content || "";
+    const finished = !!chunkData.finished;
 
-      const finished = !!chunkData.finished;
-
-      if (content || finished) {
-        onChunk(content, finished);
-      }
-    }
+    onChunk(content, finished);
   } catch (err) {
-    console.warn("Skip invalid streaming chunk:", err, "Raw data:", line);
+    console.warn("Invalid chunk:", line);
   }
 }

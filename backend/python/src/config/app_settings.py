@@ -24,9 +24,9 @@ class ModelConfig:
         self.temperature = data.get("temperature", {"min": 0.0, "max": 2.0, "default": 0.7})
         self.features = data.get("features", [])
 
-    def get_features_by_id(self, feature_id: str) -> Any:
+    def get_features_by_id(self, model_id: str) -> Optional[List[str]]:
         """Get specific feature by ID"""
-        return self.features.get(feature_id) if self.features else None
+        return [feature for feature in self.features if feature.get("id") == model_id]
 
 class ModelsConfig:
     """Represents the complete models.json configuration"""
@@ -36,6 +36,21 @@ class ModelsConfig:
         self.default_model = data.get("defaultModel", "")
         self.model_types = data.get("modelTypes", {})
         self.categories = data.get("categories", {})
+    
+    @staticmethod
+    def get_modelconfig_by_id(self, model_id: str) -> Optional[ModelConfig]:
+        """Get ModelConfig by model ID"""
+        for model in self.models:
+            if model.id == model_id:
+                return model
+        return None
+    
+    def get_features_by_model_id(self, model_id: str) -> Optional[List[str]]:
+        """Get features list for a specific model by ID"""
+        for model in self.models:
+            if model.id == model_id:
+                return model.get_features_by_id(model_id)
+        return None
     
     def get_enabled_models(self) -> List[ModelConfig]:
         """Get enabled models that have API keys configured"""

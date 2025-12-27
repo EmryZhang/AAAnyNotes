@@ -14,7 +14,12 @@
         "max": 2.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "multilingual"]
+      "features": [
+        "chat",
+        "streaming",
+        "multilingual"
+      ],
+      "online": false
     },
     {
       "id": "kimi-k2-thinking",
@@ -30,8 +35,13 @@
         "max": 2.0,
         "default": 0.3
       },
-      "features": ["chat", "streaming", "long-context", "thinking"],
-      "supportsThinkingMode": true
+      "features": [
+        "chat",
+        "streaming",
+        "long-context",
+        "thinking"
+      ],
+      "online": true
     },
     {
       "id": "kimi-k2-turbo-preview",
@@ -51,7 +61,8 @@
         "chat",
         "streaming",
         "long-context"
-      ]
+      ],
+      "online": true
     },
     {
       "id": "gpt-4",
@@ -67,7 +78,12 @@
         "max": 2.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "code-generation"]
+      "features": [
+        "chat",
+        "streaming",
+        "code-generation"
+      ],
+      "online": false
     },
     {
       "id": "gpt-3.5-turbo",
@@ -83,7 +99,12 @@
         "max": 2.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "fast-response"]
+      "features": [
+        "chat",
+        "streaming",
+        "fast-response"
+      ],
+      "online": false
     },
     {
       "id": "claude-3-sonnet-20240229",
@@ -99,7 +120,13 @@
         "max": 1.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "analysis", "long-context"]
+      "features": [
+        "chat",
+        "streaming",
+        "analysis",
+        "long-context"
+      ],
+      "online": false
     },
     {
       "id": "claude-3-opus-20240229",
@@ -115,7 +142,13 @@
         "max": 1.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "analysis", "highest-quality"]
+      "features": [
+        "chat",
+        "streaming",
+        "analysis",
+        "highest-quality"
+      ],
+      "online": false
     },
     {
       "id": "gpt-4-turbo",
@@ -131,7 +164,13 @@
         "max": 2.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "enterprise", "long-context"]
+      "features": [
+        "chat",
+        "streaming",
+        "enterprise",
+        "long-context"
+      ],
+      "online": false
     },
     {
       "id": "gemini-pro",
@@ -147,7 +186,13 @@
         "max": 2.0,
         "default": 0.9
       },
-      "features": ["chat", "streaming", "multimodal", "multilingual"]
+      "features": [
+        "chat",
+        "streaming",
+        "multimodal",
+        "multilingual"
+      ],
+      "online": false
     },
     {
       "id": "ernie-4.0",
@@ -163,7 +208,12 @@
         "max": 1.0,
         "default": 0.8
       },
-      "features": ["chat", "streaming", "chinese-optimized"]
+      "features": [
+        "chat",
+        "streaming",
+        "chinese-optimized"
+      ],
+      "online": false
     },
     {
       "id": "hunyuan-pro",
@@ -179,7 +229,12 @@
         "max": 1.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "chinese-optimized"]
+      "features": [
+        "chat",
+        "streaming",
+        "chinese-optimized"
+      ],
+      "online": false
     },
     {
       "id": "llama-2-70b-chat",
@@ -195,7 +250,12 @@
         "max": 2.0,
         "default": 0.7
       },
-      "features": ["chat", "open-source", "large-model"]
+      "features": [
+        "chat",
+        "open-source",
+        "large-model"
+      ],
+      "online": false
     },
     {
       "id": "command",
@@ -211,7 +271,12 @@
         "max": 5.0,
         "default": 0.3
       },
-      "features": ["chat", "streaming", "retrieval-augmented"]
+      "features": [
+        "chat",
+        "streaming",
+        "retrieval-augmented"
+      ],
+      "online": false
     },
     {
       "id": "llama-3-70b-instruct",
@@ -227,7 +292,12 @@
         "max": 2.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "instruct-tuned"]
+      "features": [
+        "chat",
+        "streaming",
+        "instruct-tuned"
+      ],
+      "online": false
     },
     {
       "id": "mistral-large",
@@ -243,7 +313,13 @@
         "max": 1.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "multilingual", "reasoning"]
+      "features": [
+        "chat",
+        "streaming",
+        "multilingual",
+        "reasoning"
+      ],
+      "online": false
     },
     {
       "id": "llama-3-70b-8192",
@@ -259,7 +335,12 @@
         "max": 2.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "fast-inference"]
+      "features": [
+        "chat",
+        "streaming",
+        "fast-inference"
+      ],
+      "online": false
     },
     {
       "id": "meta-llama-3-70b-instruct",
@@ -275,7 +356,12 @@
         "max": 2.0,
         "default": 0.7
       },
-      "features": ["chat", "streaming", "cost-effective"]
+      "features": [
+        "chat",
+        "streaming",
+        "cost-effective"
+      ],
+      "online": false
     }
   ],
   "defaultModel": "kimi-k2-turbo-preview",
@@ -283,72 +369,149 @@
     "glm": {
       "category": "chinese-models",
       "region": "china",
-      "languageSupport": ["zh", "en"]
+      "languageSupport": [
+        "zh",
+        "en"
+      ]
     },
     "kimi": {
       "category": "chinese-models",
       "region": "china",
-      "languageSupport": ["zh", "en"]
+      "languageSupport": [
+        "zh",
+        "en"
+      ]
     },
     "openai": {
       "category": "western-models",
       "region": "global",
-      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+      "languageSupport": [
+        "en",
+        "zh",
+        "es",
+        "fr",
+        "de",
+        "ja"
+      ]
     },
     "claude": {
       "category": "western-models",
       "region": "global",
-      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+      "languageSupport": [
+        "en",
+        "zh",
+        "es",
+        "fr",
+        "de",
+        "ja"
+      ]
     },
     "azure": {
       "category": "enterprise-models",
       "region": "global",
-      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+      "languageSupport": [
+        "en",
+        "zh",
+        "es",
+        "fr",
+        "de",
+        "ja"
+      ]
     },
     "gemini": {
       "category": "western-models",
       "region": "global",
-      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+      "languageSupport": [
+        "en",
+        "zh",
+        "es",
+        "fr",
+        "de",
+        "ja"
+      ]
     },
     "baidu": {
       "category": "chinese-models",
       "region": "china",
-      "languageSupport": ["zh", "en"]
+      "languageSupport": [
+        "zh",
+        "en"
+      ]
     },
     "tencent": {
       "category": "chinese-models",
       "region": "china",
-      "languageSupport": ["zh", "en"]
+      "languageSupport": [
+        "zh",
+        "en"
+      ]
     },
     "huggingface": {
       "category": "open-source-models",
       "region": "global",
-      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+      "languageSupport": [
+        "en",
+        "zh",
+        "es",
+        "fr",
+        "de",
+        "ja"
+      ]
     },
     "cohere": {
       "category": "specialized-models",
       "region": "global",
-      "languageSupport": ["en", "zh", "es", "fr", "de"]
+      "languageSupport": [
+        "en",
+        "zh",
+        "es",
+        "fr",
+        "de"
+      ]
     },
     "perplexity": {
       "category": "specialized-models",
       "region": "global",
-      "languageSupport": ["en", "zh", "es", "fr"]
+      "languageSupport": [
+        "en",
+        "zh",
+        "es",
+        "fr"
+      ]
     },
     "mistral": {
       "category": "western-models",
       "region": "global",
-      "languageSupport": ["en", "zh", "es", "fr", "de", "ja"]
+      "languageSupport": [
+        "en",
+        "zh",
+        "es",
+        "fr",
+        "de",
+        "ja"
+      ]
     },
     "groq": {
       "category": "specialized-models",
       "region": "global",
-      "languageSupport": ["en", "zh", "es", "fr", "de"]
+      "languageSupport": [
+        "en",
+        "zh",
+        "es",
+        "fr",
+        "de"
+      ]
     },
     "together": {
       "category": "specialized-models",
       "region": "global",
-      "languageSupport": ["en", "zh", "es", "fr", "de"]
+      "languageSupport": [
+        "en",
+        "zh",
+        "es",
+        "fr",
+        "de"
+      ]
     }
   },
   "categories": {

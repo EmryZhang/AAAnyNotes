@@ -64,7 +64,7 @@ Frontend (React + TypeScript)  <--->  Go API Server  <--->  Python AI Service
 
 ### Documentation System
 - **AGENTS.md**: Core development guidelines and policies
-- **agentext/router.md**: Intelligent routing to specific modules
+- **agentext/router.md**: Intelligent routing to specific modules     
 - **Module-specific docs**: Detailed implementation guides
 - **Language requirements**: English-only development content
 

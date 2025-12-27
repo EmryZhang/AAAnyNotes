@@ -34,6 +34,7 @@ async def chat_stream(request: Request, req: ChatStreamRequest):
     
     print(f"DEBUG: Request temperature: {req.temperature}")
     print(f"DEBUG: Request maxTokens: {req.maxTokens}")
+    print(f"DEBUG: Request thinkingMode: {getattr(req, 'thinkingMode', False)}")
     
     def generate() -> Generator[str, None, None]:
         try:

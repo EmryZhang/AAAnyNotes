@@ -180,14 +180,12 @@ func (s *ModelService) GetAvailableModels() []string {
 func (s *ModelService) GetModelCount() map[string]int {
     storeStats := s.modelStore.GetModelCount()
     storeStats["withApiKey"] = len(s.modelStore.GetAvailableModelIDs())
-    // 🔧 新增：打印统计结果
     fmt.Printf("[DEBUG service] 模型统计：%+v\n", storeStats)
     return storeStats
 }
 
 // GetAvailableModelIDs returns list of model IDs that have API keys
 func (s *ModelService) GetAvailableModelIDs() []string {
-	// 🔧 移除冗余参数：GetAvailableModelIDs不再需要传hasAPIKeyFunc
 	return s.modelStore.GetAvailableModelIDs()
 }
 

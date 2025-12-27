@@ -22,6 +22,7 @@ class ChatStreamRequest(BaseModel):
     presencePenalty: Optional[float] = 0.0
     stop: Optional[List[str]] = None
     thinkingMode: Optional[bool] = False  # Enable thinking mode
+    
 
 
 class StreamChunk(BaseModel):

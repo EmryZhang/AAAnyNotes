@@ -1,4 +1,4 @@
-package model
+﻿package model
 
 import (
 	"AAAnynotes/backend/go/internal/config"
@@ -8,67 +8,75 @@ import (
 	"sync"
 )
 
-// ModelConfig represents model information from models.json
+// ModelConfig represents the detailed configuration of a single AI model from models.json
 type ModelConfig struct {
-	ID          string             `json:"id"`
-	Name        string             `json:"name"`
-	Provider    string             `json:"provider"`
-	Description string             `json:"description"`
-	Type        string             `json:"type"`
-	EnvKey      string             `json:"envKey"` // 对应.env中的API Key变量名（如MOONSHOT_API_KEY）
-	Enabled     bool               `json:"enabled"`
-	MaxTokens   int                `json:"maxTokens"`
-	Temperature TemperatureConfig  `json:"temperature"`
-	Features    []string           `json:"features"`
+	ID          string             `json:"id"`          // Unique identifier of the model
+	Name        string             `json:"name"`        // Human-readable name of the model
+	Provider    string             `json:"provider"`    // Provider of the model (e.g., OpenAI, Moonshot)
+	Description string             `json:"description"` // Detailed description of the model's usage scenarios
+	Type        string             `json:"type"`        // Type classification of the model (e.g., kimi, gpt)
+	EnvKey      string             `json:"envKey"`      // Corresponding environment variable prefix for API Key (e.g., MOONSHOT for MOONSHOT_API_KEY)
+	Enabled     bool               `json:"enabled"`     // Whether the model is available for use
+	MaxTokens   int                `json:"maxTokens"`   // Maximum token limit for the model's response
+	Temperature TemperatureConfig  `json:"temperature"` // Temperature range and default value for text generation
+	Features    []string           `json:"features"`    // Additional features supported by the model
+	Online      bool               `json:"online"`      // Whether the model is online and accessible
 }
 
-// TemperatureConfig defines temperature range and default
+// TemperatureConfig defines the valid range and default value of the temperature parameter
+// Temperature affects the randomness of the model's output (lower = more deterministic, higher = more creative)
 type TemperatureConfig struct {
-	Min     float64 `json:"min"`
-	Max     float64 `json:"max"`
-	Default float64 `json:"default"`
+	Min     float64 `json:"min"`     // Minimum acceptable temperature value
+	Max     float64 `json:"max"`     // Maximum acceptable temperature value
+	Default float64 `json:"default"` // Default temperature value used when not specified
 }
 
-// ModelsConfig represents complete models.json structure
+// ModelsConfig represents the complete root structure of the models.json configuration file
 type ModelsConfig struct {
-	Models       []ModelConfig         `json:"models"`
-	DefaultModel string                `json:"defaultModel"`
-	ModelTypes   map[string]ModelTypeInfo `json:"modelTypes"`
-	Categories   map[string]CategoryInfo  `json:"categories"`
+	Models       []ModelConfig         `json:"models"`        // List of all available AI models
+	DefaultModel string                `json:"defaultModel"`  // Default model ID used when no specific model is specified
+	ModelTypes   map[string]ModelTypeInfo `json:"modelTypes"` // Metadata information for each model type
+	Categories   map[string]CategoryInfo  `json:"categories"` // Detailed information for each model category
 }
 
-// ModelTypeInfo contains metadata about model types
+// ModelTypeInfo contains the metadata and additional attributes of a specific model type
 type ModelTypeInfo struct {
-	Category        string   `json:"category"`
-	Region          string   `json:"region"`
-	LanguageSupport []string `json:"languageSupport"`
+	Category        string   `json:"category"`        // Category that the model type belongs to
+	Region          string   `json:"region"`          // Service region of the model type
+	LanguageSupport []string `json:"languageSupport"` // List of languages supported by the model type
 }
 
-// CategoryInfo describes model categories
+// CategoryInfo describes the basic information of a model category for classification and display
 type CategoryInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string `json:"name"`        // Human-readable name of the category
+	Description string `json:"description"` // Detailed description of the category
 }
 
-// ModelsResponse represents response for models endpoint
+// ModelsResponse represents the API response structure for the models query endpoint
+// It contains only the core information required by the frontend/client
 type ModelsResponse struct {
-	Models       []ModelConfig `json:"models"`
-	DefaultModel string        `json:"defaultModel"`
+	Models       []ModelConfig `json:"models"`       // List of available (enabled) models
+	DefaultModel string        `json:"defaultModel"` // Current default model ID
 }
 
-// ModelStore integrated model lookup table using config
+// ModelStore is a thread-safe storage manager for AI model configurations
+// It maintains indexes for fast query by model ID and type, and caches the full configuration
 type ModelStore struct {
-	config        *config.Config
-	fullConfig    ModelsConfig       // 🔧 新增：存储完整的models.json配置
-	models        map[string]ModelConfig  // model.ID (小写) -> config（更通用的key）
-	modelsByType  map[string]ModelConfig  // model.Type (小写) -> config（兼容原有逻辑）
-	mu            sync.RWMutex
+	config        *config.Config                      // Global application configuration
+	fullConfig    ModelsConfig                        // Full parsed configuration from models.json
+	models        map[string]ModelConfig              // Index: lowercase model ID -> ModelConfig (one-to-one)
+	modelsByType  map[string][]ModelConfig            // Index: lowercase model type -> []ModelConfig (one-to-many, fixes original coverage issue)
+	mu            sync.RWMutex                        // Read-write lock for thread-safe access
 }
 
-var globalStore *ModelStore
-var once sync.Once
+// Global singleton instances and initialization guard
+var (
+	globalStore *ModelStore
+	once        sync.Once
+)
 
-// GetModelStore returns global model store instance
+// GetModelStore returns the global singleton instance of ModelStore
+// It ensures only one instance is created throughout the application lifecycle
 func GetModelStore() *ModelStore {
 	once.Do(func() {
 		globalStore = NewModelStore()
@@ -76,112 +84,124 @@ func GetModelStore() *ModelStore {
 	return globalStore
 }
 
-// NewModelStore creates a new model store instance
+// NewModelStore creates a new instance of ModelStore and initializes it with configuration data
+// It falls back to the existing global config if loading new config fails
 func NewModelStore() *ModelStore {
-    cfg, err := config.LoadConfig()
-    if err != nil {
-        fmt.Printf("[DEBUG model] ModelStore初始化：加载config失败 - %v\n", err)
-        cfg = config.GetConfig()
-    }
+	// Load application configuration
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		fmt.Printf("[DEBUG model] ModelStore initialization: failed to load new config - %v\n", err)
+		cfg = config.GetConfig() // Fallback to existing global config
+	}
 
-    store := &ModelStore{
-        config:       cfg,
-        fullConfig:   ModelsConfig{},
-        models:       make(map[string]ModelConfig),
-        modelsByType: make(map[string]ModelConfig),
-    }
+	// Initialize ModelStore with empty indexes
+	store := &ModelStore{
+		config:       cfg,
+		fullConfig:   ModelsConfig{},
+		models:       make(map[string]ModelConfig),
+		modelsByType: make(map[string][]ModelConfig),
+	}
 
-    // 加载模型配置
-    if err := store.loadModelsFromConfig(); err != nil {
-        fmt.Printf("[DEBUG model] ModelStore初始化：加载模型配置失败 - %v\n", err)
-    } else {
-        // 🔧 新增：打印初始化后的模型数量
-        fmt.Printf("[DEBUG model] ModelStore初始化完成，模型数量：%d\n", len(store.models))
-    }
+	// Load and parse model configuration from config system
+	if err := store.loadModelsFromConfig(); err != nil {
+		fmt.Printf("[DEBUG model] ModelStore initialization: failed to load model config - %v\n", err)
+	} else {
+		fmt.Printf("[DEBUG model] ModelStore initialization completed, total models loaded: %d\n", len(store.models))
+	}
 
-    return store
+	return store
 }
 
-// loadModelsFromConfig loads models data from the config system
+// loadModelsFromConfig loads and parses model data from the global config system
+// It handles JSON serialization/deserialization and builds the query indexes
 func (s *ModelStore) loadModelsFromConfig() error {
-    s.mu.Lock()
-    defer s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-    // 1. 获取config中的modelsData
-    modelsData := s.config.GetModelsData()
-    // 🔧 新增：打印原始modelsData
-    fmt.Printf("[DEBUG model] 从config获取的modelsData：%+v（长度：%d）\n", modelsData, len(modelsData))
-    if len(modelsData) == 0 {
-        fmt.Printf("[DEBUG model] modelsData为空！\n")
-        return fmt.Errorf("config中未加载到models.json数据")
-    }
+	// Step 1: Retrieve raw models data from config
+	modelsData := s.config.GetModelsData()
+	fmt.Printf("[DEBUG model] Retrieved modelsData from config (length: %d)\n", len(modelsData))
+	if len(modelsData) == 0 {
+		fmt.Printf("[DEBUG model] modelsData is empty\n")
+		return fmt.Errorf("models.json data not loaded in config")
+	}
 
-    // 2. 序列化+反序列化
-    rawJSON, err := json.Marshal(modelsData)
-    if err != nil {
-        fmt.Printf("[DEBUG model] 序列化modelsData失败：%v\n", err)
-        return fmt.Errorf("序列化models数据失败: %w", err)
-    }
-    // 🔧 新增：打印序列化后的JSON字符串
-    fmt.Printf("[DEBUG model] 序列化后的models JSON：%s\n", string(rawJSON))
+	// Step 2: Serialize raw data to JSON bytes (for subsequent deserialization)
+	rawJSON, err := json.Marshal(modelsData)
+	if err != nil {
+		fmt.Printf("[DEBUG model] Failed to marshal modelsData - %v\n", err)
+		return fmt.Errorf("failed to marshal models data: %w", err)
+	}
 
-    var fullConfig ModelsConfig
-    if err := json.Unmarshal(rawJSON, &fullConfig); err != nil {
-        fmt.Printf("[DEBUG model] 反序列化ModelsConfig失败：%v\n", err)
-        return fmt.Errorf("反序列化ModelsConfig失败: %w", err)
-    }
-    // 🔧 新增：打印解析后的完整配置
-    fmt.Printf("[DEBUG model] 解析后的ModelsConfig：%+v\n", fullConfig)
-    fmt.Printf("[DEBUG model] 解析出的模型数量：%d\n", len(fullConfig.Models))
-    s.fullConfig = fullConfig
+	// Step 3: Deserialize JSON bytes to ModelsConfig struct
+	var fullConfig ModelsConfig
+	if err := json.Unmarshal(rawJSON, &fullConfig); err != nil {
+		fmt.Printf("[DEBUG model] Failed to unmarshal to ModelsConfig - %v\n", err)
+		return fmt.Errorf("failed to unmarshal to ModelsConfig: %w", err)
+	}
 
-    // 3. 构建索引
-    for _, model := range fullConfig.Models {
-        modelIDLower := strings.ToLower(model.ID)
-        modelTypeLower := strings.ToLower(model.Type)
+	fmt.Printf("[DEBUG model] Parsed ModelsConfig, total models: %d\n", len(fullConfig.Models))
+	s.fullConfig = fullConfig
 
-        if model.EnvKey != "" && s.config.HasAPIKey(strings.TrimSuffix(model.EnvKey, "_API_KEY")) {
-            model.Enabled = true
-        }
+	// Step 4: Build indexes (models by ID, models by type)
+	for _, model := range fullConfig.Models {
+		modelIDLower := strings.ToLower(model.ID)
+		modelTypeLower := strings.ToLower(model.Type)
 
-        s.models[modelIDLower] = model
-        s.modelsByType[modelTypeLower] = model
-        // 🔧 新增：打印每个加载的模型
-        fmt.Printf("[DEBUG model] 加载模型：ID=%s, Type=%s, Enabled=%t\n", model.ID, model.Type, model.Enabled)
-    }
+		// Enable model automatically if corresponding API Key exists in environment
+		if model.EnvKey != "" {
+			apiKeyPrefix := strings.TrimSuffix(model.EnvKey, "_API_KEY")
+			if s.config.HasAPIKey(apiKeyPrefix) {
+				model.Enabled = true
+			}
+		}
 
-    fmt.Printf("[DEBUG model] 最终存储的模型数量（按ID）：%d，（按Type）：%d\n", len(s.models), len(s.modelsByType))
-    return nil
+		// Build one-to-one index by model ID
+		s.models[modelIDLower] = model
+
+		// Build one-to-many index by model type (fix original coverage issue)
+		s.modelsByType[modelTypeLower] = append(s.modelsByType[modelTypeLower], model)
+
+		fmt.Printf("[DEBUG model] Loaded model: ID=%s, Type=%s, Enabled=%t\n", model.ID, model.Type, model.Enabled)
+	}
+
+	fmt.Printf("[DEBUG model] Final index status - models by ID: %d, models by type: %d\n", len(s.models), len(s.modelsByType))
+	return nil
 }
 
-// LoadModels loads models into the store
+// LoadModels manually loads a list of ModelConfig into the store, overwriting existing data
+// It maintains the same index structure as loadModelsFromConfig
 func (s *ModelStore) LoadModels(models []ModelConfig) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// 清空现有索引
+	// Clear existing indexes
 	s.models = make(map[string]ModelConfig)
-	s.modelsByType = make(map[string]ModelConfig)
+	s.modelsByType = make(map[string][]ModelConfig)
 
-	// 重新构建索引
+	// Rebuild indexes with new models data
 	for _, model := range models {
 		modelIDLower := strings.ToLower(model.ID)
 		modelTypeLower := strings.ToLower(model.Type)
 
-		// 保留原有kimi特殊逻辑（兼容）
+		// Special handling for "kimi" type: enable if API Key exists
 		if modelTypeLower == "kimi" && s.config.HasAPIKey("kimi") {
 			model.Enabled = true
 		}
 
+		// Update one-to-one ID index
 		s.models[modelIDLower] = model
-		s.modelsByType[modelTypeLower] = model
+
+		// Update one-to-many type index
+		s.modelsByType[modelTypeLower] = append(s.modelsByType[modelTypeLower], model)
 	}
 
-	// 更新完整配置的models数组
+	// Update full config's models list
 	s.fullConfig.Models = models
 }
 
-// GetAllModels returns all loaded models
+// GetAllModels returns all loaded models (regardless of enabled status)
+// The returned slice is a copy to avoid external modification of internal data
 func (s *ModelStore) GetAllModels() []ModelConfig {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -193,147 +213,175 @@ func (s *ModelStore) GetAllModels() []ModelConfig {
 	return models
 }
 
-// GetEnabledModels returns enabled models with API key availability
-func (s *ModelStore) GetEnabledModels() ModelsResponse { // 🔧 简化：移除冗余的hasAPIKeyFunc参数
+// GetEnabledModels returns a response containing all online/enabled models and the default model
+// Models are filtered by their Online status (marked as accessible)
+func (s *ModelStore) GetEnabledModels() ModelsResponse {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	var enabledModels []ModelConfig
 	for _, model := range s.models {
-		// 启用条件：配置enabled=true 或 有对应的API Key
-		if model.Enabled || (model.EnvKey != "" && s.config.HasAPIKey(strings.TrimSuffix(model.EnvKey, "_API_KEY"))) {
+		// Filter condition: model is marked as online (accessible)
+		if model.Online {
 			enabledModels = append(enabledModels, model)
 		}
 	}
 
-	defaultModel := s.GetDefaultModel()
-
 	return ModelsResponse{
 		Models:       enabledModels,
-		DefaultModel: defaultModel,
+		DefaultModel: s.GetDefaultModel(),
 	}
 }
 
-// GetModelByType returns model configuration by type
+// GetModelByType returns the first available ModelConfig of the specified type (case-insensitive)
+// Returns nil if no model of the specified type exists
 func (s *ModelStore) GetModelByType(modelType string) *ModelConfig {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	modelTypeLower := strings.ToLower(modelType)
-	if model, exists := s.modelsByType[modelTypeLower]; exists {
-		return &model
+	models, exists := s.modelsByType[modelTypeLower]
+	if exists && len(models) > 0 {
+		return &models[0] // Return the first model of the type (compatible with original logic)
 	}
 	return nil
 }
 
-// GetModelByID returns model configuration by model ID
+// GetModelByID returns the ModelConfig of the specified ID (case-insensitive)
+// Returns nil if the model ID does not exist
 func (s *ModelStore) GetModelByID(modelID string) *ModelConfig {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	modelIDLower := strings.ToLower(modelID)
-	if model, exists := s.models[modelIDLower]; exists {
+	model, exists := s.models[modelIDLower]
+	if exists {
 		return &model
 	}
 	return nil
 }
 
-// GetDefaultModel returns default model (优先用config配置，再用models.json，最后兜底)
+// GetDefaultModel returns the current default model ID with priority fallback logic
+// Priority: 1. Config's default model -> 2. models.json's default model -> 3. Kimi model (if available) -> 4. First enabled model -> 5. Fallback ID
 func (s *ModelStore) GetDefaultModel() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	// 1. 优先使用config.go中.env配置的DefaultModel
+	// Step 1: Prioritize default model from environment config
 	configDefault := s.config.GetDefaultModelID()
 	if configDefault != "" {
-		if model := s.GetModelByID(configDefault); model != nil {
-			return model.ID
+		if s.GetModelByID(configDefault) != nil {
+			return configDefault
 		}
-		fmt.Printf("警告：config中配置的DefaultModel %s 不存在，降级使用models.json配置\n", configDefault)
+		fmt.Printf("Warning: Default model %s from config does not exist, falling back to models.json config\n", configDefault)
 	}
 
-	// 2. 降级使用models.json中的defaultModel
+	// Step 2: Fallback to default model from models.json
 	if s.fullConfig.DefaultModel != "" {
-		if model := s.GetModelByID(s.fullConfig.DefaultModel); model != nil {
-			return model.ID
+		if s.GetModelByID(s.fullConfig.DefaultModel) != nil {
+			return s.fullConfig.DefaultModel
 		}
-		fmt.Printf("警告：models.json中配置的DefaultModel %s 不存在，降级使用kimi\n", s.fullConfig.DefaultModel)
+		fmt.Printf("Warning: Default model %s from models.json does not exist, falling back to kimi model\n", s.fullConfig.DefaultModel)
 	}
 
-	// 3. 最后兜底（兼容原有逻辑）
+	// Step 3: Fallback to Kimi model (if API Key exists)
 	if kimiModel := s.GetModelByType("kimi"); kimiModel != nil && s.config.HasAPIKey("kimi") {
 		return kimiModel.ID
 	}
 
-	// 4. 终极兜底：返回第一个可用模型
+	// Step 4: Fallback to the first available (enabled or with API Key) model
 	for _, model := range s.models {
-		if model.Enabled || (model.EnvKey != "" && s.config.HasAPIKey(strings.TrimSuffix(model.EnvKey, "_API_KEY"))) {
+		apiKeyAvailable := model.EnvKey != "" && s.config.HasAPIKey(strings.TrimSuffix(model.EnvKey, "_API_KEY"))
+		if model.Enabled || apiKeyAvailable {
 			return model.ID
 		}
 	}
 
+	// Step 5: Final fallback (default hardcoded ID)
 	return "kimi-k2-turbo-preview"
 }
 
-// GetAvailableModelIDs returns list of model IDs that have API keys
-func (s *ModelStore) GetAvailableModelIDs() []string { // 🔧 简化：移除冗余参数
+// GetAvailableModelIDs returns a list of model IDs whose `online` field is true
+// These models are considered "available" (online and accessible) for use
+func (s *ModelStore) GetAvailableModelIDs() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	var modelIDs []string
 	for _, model := range s.models {
-		// 根据EnvKey判断API Key是否存在
-		if model.EnvKey != "" && s.config.HasAPIKey(strings.TrimSuffix(model.EnvKey, "_API_KEY")) {
+		// 判断逻辑：仅保留 online 字段为 true 的模型
+		if model.Online {
 			modelIDs = append(modelIDs, model.ID)
 		}
 	}
 	return modelIDs
 }
 
-// UpdateModelStatus updates enabled status of a model
-func (s *ModelStore) UpdateModelStatus(modelID string, enabled bool) error { // 🔧 改为按ID更新（更准确）
+// UpdateModelStatus updates the enabled status of a specific model by ID (case-insensitive)
+// It synchronously updates the ID index, type index, and full config to maintain data consistency
+func (s *ModelStore) UpdateModelStatus(modelID string, enabled bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	modelIDLower := strings.ToLower(modelID)
-	if model, exists := s.models[modelIDLower]; exists {
-		model.Enabled = enabled
-		s.models[modelIDLower] = model
-		// 同步更新按Type索引的模型
-		modelTypeLower := strings.ToLower(model.Type)
-		s.modelsByType[modelTypeLower] = model
-		// 同步更新fullConfig中的模型
-		for i, m := range s.fullConfig.Models {
-			if strings.ToLower(m.ID) == modelIDLower {
-				s.fullConfig.Models[i].Enabled = enabled
-				break
-			}
-		}
-		return nil
+	existingModel, exists := s.models[modelIDLower]
+	if !exists {
+		return fmt.Errorf("model ID not found: %s", modelID)
 	}
-	return fmt.Errorf("model ID not found: %s", modelID)
+
+	// Update the model's enabled status
+	updatedModel := existingModel
+	updatedModel.Enabled = enabled
+
+	// 1. Update ID index
+	s.models[modelIDLower] = updatedModel
+
+	// 2. Update type index (rebuild the slice for the model's type to maintain consistency)
+	modelTypeLower := strings.ToLower(updatedModel.Type)
+	var updatedTypeModels []ModelConfig
+	for _, m := range s.modelsByType[modelTypeLower] {
+		if strings.ToLower(m.ID) == modelIDLower {
+			updatedTypeModels = append(updatedTypeModels, updatedModel)
+		} else {
+			updatedTypeModels = append(updatedTypeModels, m)
+		}
+	}
+	s.modelsByType[modelTypeLower] = updatedTypeModels
+
+	// 3. Update full config's models list
+	for i, m := range s.fullConfig.Models {
+		if strings.ToLower(m.ID) == modelIDLower {
+			s.fullConfig.Models[i].Enabled = enabled
+			break
+		}
+	}
+
+	return nil
 }
 
-// GetModelCount returns statistics about loaded models
+// GetModelCount returns statistical data about the loaded models (total and enabled counts)
+// Enabled count includes models marked as enabled or with valid API Keys
 func (s *ModelStore) GetModelCount() map[string]int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	enabledCount := 0
 	for _, model := range s.models {
-		if model.Enabled || (model.EnvKey != "" && s.config.HasAPIKey(strings.TrimSuffix(model.EnvKey, "_API_KEY"))) {
+		apiKeyAvailable := model.EnvKey != "" && s.config.HasAPIKey(strings.TrimSuffix(model.EnvKey, "_API_KEY"))
+		if model.Enabled || apiKeyAvailable {
 			enabledCount++
 		}
 	}
 
 	return map[string]int{
 		"total":   len(s.models),
-		"enabled": enabledCount, // 实际计算启用数量
+		"enabled": enabledCount,
 	}
 }
 
-// SearchModels searches models by name, provider, or description
-func (s *ModelStore) SearchModels(query string) []ModelConfig { // 🔧 简化：移除冗余参数
+// SearchModels searches for available models (with valid API Keys) by query string
+// It matches the query against model's name, provider, and description (case-insensitive)
+func (s *ModelStore) SearchModels(query string) []ModelConfig {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -341,40 +389,54 @@ func (s *ModelStore) SearchModels(query string) []ModelConfig { // 🔧 简化�
 	queryLower := strings.ToLower(query)
 
 	for _, model := range s.models {
-		// 只包含有API Key的模型
-		if model.EnvKey != "" && s.config.HasAPIKey(strings.TrimSuffix(model.EnvKey, "_API_KEY")) {
-			if strings.Contains(strings.ToLower(model.Name), queryLower) ||
-				strings.Contains(strings.ToLower(model.Provider), queryLower) ||
-				strings.Contains(strings.ToLower(model.Description), queryLower) {
-				results = append(results, model)
-			}
+		// Only include models with valid API Keys
+		if model.EnvKey == "" {
+			continue
+		}
+		apiKeyPrefix := strings.TrimSuffix(model.EnvKey, "_API_KEY")
+		if !s.config.HasAPIKey(apiKeyPrefix) {
+			continue
+		}
+
+		// Match query against target fields
+		modelNameLower := strings.ToLower(model.Name)
+		modelProviderLower := strings.ToLower(model.Provider)
+		modelDescLower := strings.ToLower(model.Description)
+		if strings.Contains(modelNameLower, queryLower) ||
+			strings.Contains(modelProviderLower, queryLower) ||
+			strings.Contains(modelDescLower, queryLower) {
+			results = append(results, model)
 		}
 	}
+
 	return results
 }
 
-// Reload reloads models from config
+// Reload reloads the model configuration from the config system (including fresh models.json data)
+// It first reloads the global config to ensure the latest data is used
 func (s *ModelStore) Reload() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// 先重新加载config（确保models.json数据最新）
+	// Reload global config first to get the latest models.json data
 	if err := s.config.ReloadConfig(); err != nil {
-		return fmt.Errorf("重新加载config失败: %w", err)
+		return fmt.Errorf("failed to reload config: %w", err)
 	}
 
-	// 重新加载模型配置
+	// Reload model configuration from the updated config
 	return s.loadModelsFromConfig()
 }
 
-// 🔧 新增：获取完整的ModelsConfig（包含modelTypes/categories）
+// GetFullConfig returns the full parsed ModelsConfig (including ModelTypes and Categories)
+// The returned value is a copy to prevent external modification of internal state
 func (s *ModelStore) GetFullConfig() ModelsConfig {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.fullConfig
 }
 
-// 🔧 新增：获取模型类型元信息
+// GetModelTypeInfo returns the metadata information of a specific model type (case-insensitive)
+// The second return value indicates whether the model type exists
 func (s *ModelStore) GetModelTypeInfo(modelType string) (ModelTypeInfo, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -382,7 +444,8 @@ func (s *ModelStore) GetModelTypeInfo(modelType string) (ModelTypeInfo, bool) {
 	return info, exists
 }
 
-// 🔧 新增：获取分类信息
+// GetCategoryInfo returns the detailed information of a specific model category (case-insensitive)
+// The second return value indicates whether the category exists
 func (s *ModelStore) GetCategoryInfo(category string) (CategoryInfo, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
